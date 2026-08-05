@@ -1,0 +1,13 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/config.2.0.schema.json",
+  "version": "2.0",
+  "bundles": {
+    "dha-portfolio-manager-web-part": {
+      "components": [
+        { "entrypoint": "./lib/webparts/dhaPortfolioManager/DhaPortfolioManagerWebPart.js", "manifest": "./src/webparts/dhaPortfolioManager/DhaPortfolioManagerWebPart.manifest.json" }
+      ]
+    }
+  },
+  "externals": {},
+  "localizedResources": {}
+}

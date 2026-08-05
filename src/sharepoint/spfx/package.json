@@ -1,0 +1,28 @@
+{
+  "name": "dha-portfolio-manager-spap",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "gulp bundle --ship",
+    "package-solution": "gulp package-solution --ship",
+    "serve": "gulp serve-deprecated"
+  },
+  "dependencies": {
+    "@microsoft/sp-core-library": "1.21.1",
+    "@microsoft/sp-webpart-base": "1.21.1",
+    "@microsoft/sp-lodash-subset": "1.21.1",
+    "@microsoft/sp-office-ui-fabric-core": "1.21.1",
+    "@microsoft/sp-property-pane": "1.21.1",
+    "@types/react": "17.0.45",
+    "@types/react-dom": "17.0.17",
+    "react": "17.0.1",
+    "react-dom": "17.0.1"
+  },
+  "devDependencies": {
+    "@microsoft/rush-stack-compiler-4.7": "0.1.0",
+    "@microsoft/sp-build-web": "1.21.1",
+    "@microsoft/sp-module-interfaces": "1.21.1",
+    "gulp": "4.0.2",
+    "typescript": "5.3.3"
+  }
+}

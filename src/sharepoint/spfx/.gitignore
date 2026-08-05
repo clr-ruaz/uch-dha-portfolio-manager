@@ -1,0 +1,7 @@
+node_modules/
+lib/
+temp/
+dist/
+release/
+sharepoint/solution/*.sppkg
+sharepoint/solution/debug/

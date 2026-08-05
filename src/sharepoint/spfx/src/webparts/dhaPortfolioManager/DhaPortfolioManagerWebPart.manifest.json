@@ -1,0 +1,8 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx/client-side-web-part-manifest.schema.json",
+  "id": "70175db7-544c-41e7-abdb-383036e280dc", "alias": "DhaPortfolioManagerAppPageWebPart", "componentType": "WebPart",
+  "version": "1.0.0", "manifestVersion": 2,
+  "requiresCustomScript": false, "supportsFullBleed": true, "supportedHosts": ["SharePointWebPart", "SharePointFullPage"],
+  "supportsThemeVariants": true,
+  "preconfiguredEntries": [{ "groupId": "70175db7-544c-41e7-abdb-383036e280dc", "group": { "default": "DHA" }, "title": { "default": "DHA Portfolio Manager" }, "description": { "default": "DHA resident portfolio operations dashboard" }, "officeFabricIconFontName": "Table", "properties": { "intakeListName": "DHA Intake", "peopleListName": "ResMan People", "ledgerListName": "ResMan TLedger" } }]
+}
