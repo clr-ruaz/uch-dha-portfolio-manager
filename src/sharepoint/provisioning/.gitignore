@@ -1,0 +1,4 @@
+# Per-site configuration and generated provisioning artifacts
+sharepoint-list-schema-config.json
+sharepoint-list-import-template.xml
+sharepoint-list-export-inventory.csv
