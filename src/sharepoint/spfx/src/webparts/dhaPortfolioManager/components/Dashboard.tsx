@@ -64,7 +64,7 @@ type LedgerDetailSortKey =
   | "Amount"
   | "PaymentMethod"
   | "DateReversed";
-type DataType = "text" | "money" | "date" | "link";
+type DataType = "text" | "money" | "date" | "link" | "action";
 interface Column {
   key: string;
   label: string;
@@ -75,6 +75,7 @@ interface FormField {
   key: string;
   label: string;
   type: "text" | "money" | "date" | "boolean" | "status";
+  readOnly?: boolean;
 }
 interface SnapshotMetric {
   label: string;
@@ -95,6 +96,11 @@ const money = new Intl.NumberFormat("en-US", {
   currency: "USD",
 });
 const pageSizeOptions = [10, 20, 50, 100];
+const configurationListName = "DHA Configuration";
+const refreshBalancesConfigurationTitle = "Refresh Balances Endpoint";
+const configurationValueFieldKey = "Value";
+const flowServiceResource = "https://service.flow.microsoft.com/";
+const managePermissionsMask = 1 << 25;
 const documentStatusOptions = [
   "Contract not uploaded",
   "Welcome/Invoice not uploaded",
@@ -127,10 +133,10 @@ const fieldGroups: Array<{ title: string; fields: FormField[] }> = [
   {
     title: "Ledger Summary",
     fields: [
-      { key: "Charges", label: "Charges", type: "money" },
-      { key: "Payments", label: "Payment", type: "money" },
-      { key: "Credits", label: "Credits", type: "money" },
-      { key: "Balance", label: "Balance", type: "money" },
+      { key: "Charges", label: "Charges", type: "money", readOnly: true },
+      { key: "Payments", label: "Payment", type: "money", readOnly: true },
+      { key: "Credits", label: "Credits", type: "money", readOnly: true },
+      { key: "Balance", label: "Balance", type: "money", readOnly: true },
     ],
   },
   {
@@ -239,6 +245,12 @@ const col: Column[] = [
   { key: "payment", label: "Payment", type: "money", value: (r) => r.Payments },
   { key: "credits", label: "Credits", type: "money", value: (r) => r.Credits },
   { key: "balance", label: "Balance", type: "money", value: (r) => r.Balance },
+  {
+    key: "transactions",
+    label: "Transactions",
+    type: "action",
+    value: () => "View Ledger",
+  },
   {
     key: "leaseStart",
     label: "Lease Start",
@@ -438,6 +450,8 @@ export default function Dashboard(
   const [dataView, setDataView] = React.useState<DataView>("resident");
   const [selectedLedgerRow, setSelectedLedgerRow] =
     React.useState<LedgerPivotRow | undefined>();
+  const [ledgerDetailLoading, setLedgerDetailLoading] = React.useState(false);
+  const [ledgerDetailError, setLedgerDetailError] = React.useState("");
   const [ledgerDetailSort, setLedgerDetailSort] = React.useState<{
     key: LedgerDetailSortKey;
     desc: boolean;
@@ -460,9 +474,28 @@ export default function Dashboard(
   const [create, setCreate] = React.useState(false);
   const [tenantSearch, setTenantSearch] = React.useState("");
   const [saving, setSaving] = React.useState(false);
+  const [refreshBalancesEndpoint, setRefreshBalancesEndpoint] =
+    React.useState("");
+  const [refreshConfigurationLoading, setRefreshConfigurationLoading] =
+    React.useState(true);
+  const [refreshConfigurationError, setRefreshConfigurationError] =
+    React.useState("");
+  const [canManageRefreshConfiguration, setCanManageRefreshConfiguration] =
+    React.useState(false);
+  const [manageRefreshConfiguration, setManageRefreshConfiguration] =
+    React.useState(false);
+  const [refreshEndpointDraft, setRefreshEndpointDraft] = React.useState("");
+  const [refreshEndpointError, setRefreshEndpointError] = React.useState("");
+  const [refreshEndpointSaving, setRefreshEndpointSaving] =
+    React.useState(false);
+  const [refreshBalancesRunning, setRefreshBalancesRunning] =
+    React.useState(false);
+  const [refreshBalancesStatus, setRefreshBalancesStatus] = React.useState("");
+  const [refreshBalancesError, setRefreshBalancesError] = React.useState("");
   const commandSentinel = React.useRef<HTMLDivElement>(null);
   const columnMenu = React.useRef<HTMLDetailsElement>(null);
   const ledgerRequestId = React.useRef(0);
+  const ledgerDetailRequestId = React.useRef(0);
   const [commandBarPinned, setCommandBarPinned] = React.useState(false);
   React.useEffect(() => {
     store("dha-properties", properties);
@@ -527,6 +560,75 @@ export default function Dashboard(
     },
     [get]
   );
+  const refreshConfigurationListUrl =
+    `${base}/_api/web/lists/getbytitle('${safe(configurationListName)}')`;
+  const loadRefreshConfiguration = React.useCallback(async (): Promise<void> => {
+    setRefreshConfigurationLoading(true);
+    setRefreshConfigurationError("");
+    let configurationError = "";
+    let isSiteAdmin = false;
+    let hasManagePermissions = false;
+    let siteAdminLookupFailed = false;
+    let permissionsLookupSucceeded = false;
+    try {
+      const currentUserResult = await get(
+        `${base}/_api/web/currentuser?$select=IsSiteAdmin`
+      );
+      const currentUser = currentUserResult.d || currentUserResult;
+      isSiteAdmin = currentUser.IsSiteAdmin === true;
+    } catch (e) {
+      siteAdminLookupFailed = true;
+    }
+    const permissionUrls = [
+      `${refreshConfigurationListUrl}/EffectiveBasePermissions`,
+      `${base}/_api/web/EffectiveBasePermissions`,
+    ];
+    for (const permissionUrl of permissionUrls) {
+      try {
+        const permissionResult = await get(permissionUrl);
+        const permissionPayload = permissionResult.d || permissionResult;
+        const effectivePermissions =
+          permissionPayload.EffectiveBasePermissions || permissionPayload;
+        const lowPermissions = Number(effectivePermissions.Low || 0);
+        permissionsLookupSucceeded = true;
+        hasManagePermissions =
+          hasManagePermissions ||
+          (lowPermissions & managePermissionsMask) === managePermissionsMask;
+      } catch (e) {
+        // Try the next applicable SharePoint permission scope.
+      }
+    }
+    setCanManageRefreshConfiguration(isSiteAdmin || hasManagePermissions);
+    if (siteAdminLookupFailed && !permissionsLookupSucceeded) {
+      configurationError =
+        "Unable to verify Refresh Balances configuration permissions.";
+    }
+    try {
+      const configurationResult = await get(
+        `${refreshConfigurationListUrl}/items?$filter=Title eq '${safe(
+          refreshBalancesConfigurationTitle
+        )}'&$top=1`
+      );
+      const configurationItems = configurationResult.value ||
+        (configurationResult.d && configurationResult.d.results) || [];
+      const configurationItem = configurationItems[0];
+      setRefreshBalancesEndpoint(
+        String(
+          configurationItem && configurationItem[configurationValueFieldKey] || ""
+        ).trim()
+      );
+    } catch (e) {
+      configurationError = e instanceof Error
+        ? e.message
+        : "Unable to load the Refresh Balances configuration.";
+    } finally {
+      setRefreshConfigurationError(configurationError);
+      setRefreshConfigurationLoading(false);
+    }
+  }, [base, get, refreshConfigurationListUrl]);
+  React.useEffect(() => {
+    void loadRefreshConfiguration();
+  }, [loadRefreshConfiguration]);
   const load = React.useCallback(async (): Promise<void> => {
     setLoading(true);
     setError("");
@@ -729,8 +831,62 @@ export default function Dashboard(
     }));
   };
   const openLedgerDetails = (row: LedgerPivotRow): void => {
+    ++ledgerDetailRequestId.current;
+    setLedgerDetailLoading(false);
+    setLedgerDetailError("");
     setLedgerDetailSort({ key: "date", desc: true });
     setSelectedLedgerRow(row);
+  };
+  const closeLedgerDetails = (): void => {
+    ++ledgerDetailRequestId.current;
+    setLedgerDetailLoading(false);
+    setLedgerDetailError("");
+    setSelectedLedgerRow(undefined);
+  };
+  const openResidentLedgerDetails = async (item: Intake): Promise<void> => {
+    const requestId = ++ledgerDetailRequestId.current;
+    const billingAccountId = Number(item.TenantNameId || 0);
+    const rangeEnd = new Date();
+    const rangeStart = new Date(rangeEnd.getTime());
+    rangeStart.setUTCFullYear(rangeStart.getUTCFullYear() - 2);
+    setLedgerDetailSort({ key: "date", desc: true });
+    setLedgerDetailError("");
+    setLedgerDetailLoading(true);
+    setSelectedLedgerRow({
+      key: `resident-${item.Id}`,
+      tenant: name(item),
+      property: prop(item),
+      unit: unit(item),
+      monthKey: "past-two-years",
+      month: `${rangeStart.toLocaleDateString("en-US")} to ${rangeEnd.toLocaleDateString("en-US")}`,
+      charges: {},
+      payments: {},
+      credits: {},
+      transactions: [],
+    });
+    if (!billingAccountId) {
+      setLedgerDetailLoading(false);
+      setLedgerDetailError("This resident does not have a billing account ID.");
+      return;
+    }
+    try {
+      const listName = safe(props.ledgerListName || "ResMan TLedger");
+      const transactions = await getAllItems(
+        `${base}/_api/web/lists/getbytitle('${listName}')/items?$top=5000&$select=Id,Title,TenantNameId,date,transactionType,CategoryName,Description,Amount,PaymentMethod,DateReversed&$filter=TenantNameId eq ${billingAccountId} and date ge datetime'${rangeStart.toISOString()}' and date le datetime'${rangeEnd.toISOString()}'&$orderby=date desc`
+      );
+      if (requestId !== ledgerDetailRequestId.current) return;
+      setSelectedLedgerRow((current) =>
+        current ? { ...current, transactions: transactions as LedgerEntry[] } : current
+      );
+    } catch (e) {
+      if (requestId !== ledgerDetailRequestId.current) return;
+      setLedgerDetailError(
+        e instanceof Error ? e.message : "Unable to load billing account transactions."
+      );
+    } finally {
+      if (requestId === ledgerDetailRequestId.current)
+        setLedgerDetailLoading(false);
+    }
   };
   const activeColumns = col.filter((item) => columns.indexOf(item.key) >= 0);
   const exportCsv = (): void => {
@@ -834,6 +990,44 @@ export default function Dashboard(
     document.body.removeChild(link);
     window.setTimeout(() => window.URL.revokeObjectURL(url), 0);
   };
+  const exportLedgerDetailsCsv = (): void => {
+    if (!selectedLedgerRow || !sortedLedgerTransactions.length) return;
+    const headers = [
+      "Date",
+      "Type",
+      "Category Name",
+      "Description",
+      "Amount",
+      "Payment Method",
+      "Date Reversed",
+    ];
+    const dataRows = sortedLedgerTransactions.map((transaction) => [
+      date(transaction.date),
+      transaction.transactionType || "",
+      transaction.CategoryName || "",
+      transaction.Description || "",
+      String(num(transaction.Amount)),
+      transaction.PaymentMethod || "",
+      transaction.DateReversed ? date(transaction.DateReversed) : "",
+    ]);
+    const csv = [headers]
+      .concat(dataRows)
+      .map((row) => row.map(csvCell).join(","))
+      .join("\r\n");
+    const blob = new Blob(["\ufeff", csv], {
+      type: "text/csv;charset=utf-8",
+    });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `transaction-ledger-details-${new Date()
+      .toISOString()
+      .slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.setTimeout(() => window.URL.revokeObjectURL(url), 0);
+  };
   const kpis = calculateKpis(filtered, base);
   const charts = calculateDashboardCharts(filtered);
   const snapshotMax = Math.max(
@@ -869,6 +1063,126 @@ export default function Dashboard(
     setEdit(undefined);
     setDraft({ DHAStatus: "Active" });
     setTenantSearch("");
+  };
+  const openRefreshConfiguration = (): void => {
+    setRefreshEndpointDraft(refreshBalancesEndpoint);
+    setRefreshEndpointError("");
+    setManageRefreshConfiguration(true);
+  };
+  const saveRefreshConfiguration = async (): Promise<void> => {
+    const endpoint = refreshEndpointDraft.trim();
+    setRefreshEndpointError("");
+    if (endpoint) {
+      try {
+        const parsedEndpoint = new URL(endpoint);
+        if (parsedEndpoint.protocol !== "https:")
+          throw new Error("The endpoint must use HTTPS.");
+      } catch (e) {
+        setRefreshEndpointError(
+          e instanceof Error && e.message === "The endpoint must use HTTPS."
+            ? e.message
+            : "Enter a valid HTTPS endpoint URL."
+        );
+        return;
+      }
+    }
+    setRefreshEndpointSaving(true);
+    try {
+      const configurationResult = await get(
+        `${refreshConfigurationListUrl}/items?$select=Id&$filter=Title eq '${safe(
+          refreshBalancesConfigurationTitle
+        )}'&$top=1`
+      );
+      const configurationItems = configurationResult.value ||
+        (configurationResult.d && configurationResult.d.results) || [];
+      const configurationItem = configurationItems[0];
+      const itemUrl = configurationItem
+        ? `${refreshConfigurationListUrl}/items(${configurationItem.Id})`
+        : `${refreshConfigurationListUrl}/items`;
+      const response = await props.context.spHttpClient.fetch(
+        itemUrl,
+        SPHttpClient.configurations.v1,
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json;odata=nometadata",
+            "Content-Type": "application/json;odata=nometadata",
+            ...(configurationItem
+              ? { "IF-MATCH": "*", "X-HTTP-Method": "MERGE" }
+              : {}),
+          },
+          body: JSON.stringify({
+            Title: refreshBalancesConfigurationTitle,
+            [configurationValueFieldKey]: endpoint,
+          }),
+        }
+      );
+      if (!response.ok) {
+        const responseText = await response.text();
+        throw new Error(
+          `Unable to save the endpoint (${response.status}): ${responseText.substring(
+            0,
+            160
+          )}`
+        );
+      }
+      setRefreshBalancesEndpoint(endpoint);
+      setRefreshBalancesStatus("");
+      setRefreshBalancesError("");
+      setManageRefreshConfiguration(false);
+    } catch (e) {
+      setRefreshEndpointError(
+        e instanceof Error
+          ? e.message
+          : "Unable to save the Refresh Balances endpoint."
+      );
+    } finally {
+      setRefreshEndpointSaving(false);
+    }
+  };
+  const refreshBalances = async (): Promise<void> => {
+    if (!refreshBalancesEndpoint) return;
+    setRefreshBalancesRunning(true);
+    setRefreshBalancesStatus("");
+    setRefreshBalancesError("");
+    try {
+      const tokenProvider =
+        await props.context.aadTokenProviderFactory.getTokenProvider();
+      const accessToken = await tokenProvider.getToken(flowServiceResource);
+      const response = await window.fetch(refreshBalancesEndpoint, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          source: "DHA Portfolio Manager",
+          requestedAt: new Date().toISOString(),
+          requestedBy: props.context.pageContext.user.email,
+        }),
+      });
+      if (!response.ok) {
+        const responseText = await response.text();
+        throw new Error(
+          `Refresh Balances request failed (${response.status}): ${responseText.substring(
+            0,
+            160
+          )}`
+        );
+      }
+      await load();
+      setRefreshBalancesStatus(
+        "Balances were refreshed and the Resident Data table was reloaded."
+      );
+    } catch (e) {
+      setRefreshBalancesError(
+        e instanceof Error
+          ? e.message
+          : "Unable to submit the Refresh Balances request."
+      );
+    } finally {
+      setRefreshBalancesRunning(false);
+    }
   };
   const save = async (): Promise<void> => {
     setFormError("");
@@ -1074,6 +1388,9 @@ export default function Dashboard(
           </button>
           <button onClick={reset}>Reset Filters</button>
           <button onClick={() => setAdvanced(!advanced)}>☷ More Filters</button>
+          {canManageRefreshConfiguration && (
+            <button onClick={openRefreshConfiguration}>⚙ Manage</button>
+          )}
         </div>
         {advanced && (
           <div className={styles.advanced}>
@@ -1273,6 +1590,28 @@ export default function Dashboard(
             <button className={styles.add} onClick={openCreate}>
               ＋ Add resident
             </button>
+            <button
+              className={`${styles.refresh} ${
+                refreshBalancesRunning ? styles.refreshLoading : ""
+              }`}
+              onClick={() => void refreshBalances()}
+              disabled={
+                refreshConfigurationLoading ||
+                refreshBalancesRunning ||
+                !refreshBalancesEndpoint
+              }
+              aria-busy={refreshBalancesRunning}
+            >
+              <span
+                className={`${styles.refreshIcon} ${
+                  refreshBalancesRunning ? styles.refreshIconLoading : ""
+                }`}
+                aria-hidden="true"
+              >
+                ↻
+              </span>{" "}
+              {refreshBalancesRunning ? "Refreshing Balances…" : "Refresh Balances"}
+            </button>
             <details className={styles.columnMenu} ref={columnMenu}>
               <summary>▦ Selected Columns</summary>
               <div className={styles.columnPanel}>
@@ -1303,6 +1642,23 @@ export default function Dashboard(
             </button>
           </div>
         </div>
+        {!refreshConfigurationLoading && !refreshBalancesEndpoint && (
+          <div className={styles.formError} role="note">
+            The endpoint for the Refresh Balances function needs to be
+            configured by a site owner.
+          </div>
+        )}
+        {refreshConfigurationError && (
+          <div className={styles.formError} role="alert">
+            {refreshConfigurationError}
+          </div>
+        )}
+        {refreshBalancesError && (
+          <div className={styles.formError} role="alert">
+            {refreshBalancesError}
+          </div>
+        )}
+        {refreshBalancesStatus && <p role="status">{refreshBalancesStatus}</p>}
         <div className={styles.scroll}>
           <table>
             <thead>
@@ -1315,7 +1671,10 @@ export default function Dashboard(
                 </th>
                 {activeColumns.map((item) => (
                   <th key={item.key}>
-                    <button onClick={() => setSort(nextSort(sort, item.key))}>
+                    <button
+                      className={item.type === "money" ? styles.pivotValue : undefined}
+                      onClick={() => setSort(nextSort(sort, item.key))}
+                    >
                       {item.label}{" "}
                       {sort.key === item.key ? (sort.desc ? "↓" : "↑") : "↕"}
                     </button>
@@ -1367,7 +1726,12 @@ export default function Dashboard(
                     return (
                       <td
                         key={column.key}
-                        className={dateWarning ? styles.dateWarning : undefined}
+                        className={[
+                          column.type === "money" ? styles.pivotValue : "",
+                          dateWarning ? styles.dateWarning : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ") || undefined}
                         title={dateWarning}
                       >
                         {column.type === "link" ? (
@@ -1379,6 +1743,17 @@ export default function Dashboard(
                             onClick={(e) => e.stopPropagation()}
                           >
                             View Document
+                          </a>
+                        ) : column.type === "action" ? (
+                          <a
+                            href="#"
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              void openResidentLedgerDetails(item);
+                            }}
+                          >
+                            View Ledger
                           </a>
                         ) : (
                           display(item, column, base)
@@ -1714,16 +2089,32 @@ export default function Dashboard(
                 </small>
               </div>
               <button
-                onClick={() => setSelectedLedgerRow(undefined)}
+                onClick={closeLedgerDetails}
                 aria-label="Close transaction ledger details"
               >
                 ×
               </button>
             </header>
             <p className={styles.ledgerDetailSummary}>
-              {selectedLedgerRow.transactions.length} underlying transactions
+              {ledgerDetailLoading
+                ? "Loading billing account transactions..."
+                : `${selectedLedgerRow.transactions.length} underlying transactions`}
             </p>
-            <div className={styles.scroll}>
+            {ledgerDetailError && (
+              <div className={styles.error} role="alert">
+                {ledgerDetailError}
+              </div>
+            )}
+            {ledgerDetailLoading ? (
+              <div className={styles.ledgerLoadingState}>
+                <span className={styles.ledgerLoadingSpinner} aria-hidden="true" />
+                <span>
+                  <strong>Loading transactions</strong>
+                  <small>Retrieving activity for this billing account.</small>
+                </span>
+              </div>
+            ) : !ledgerDetailError && (
+              <div className={styles.scroll}>
               <table className={styles.ledgerDetailTable}>
                 <thead>
                   <tr>
@@ -1752,12 +2143,86 @@ export default function Dashboard(
                         <td>{date(transaction.DateReversed)}</td>
                       </tr>
                     ))}
+                  {!sortedLedgerTransactions.length && (
+                    <tr>
+                      <td colSpan={7} className={styles.empty}>
+                        No transactions found for this period.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
-            </div>
+              </div>
+            )}
             <footer>
-              <button onClick={() => setSelectedLedgerRow(undefined)}>
+              <button
+                onClick={exportLedgerDetailsCsv}
+                disabled={
+                  ledgerDetailLoading ||
+                  Boolean(ledgerDetailError) ||
+                  !sortedLedgerTransactions.length
+                }
+              >
+                ⇩ Export CSV
+              </button>
+              <button onClick={closeLedgerDetails}>
                 Close
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+      {manageRefreshConfiguration && (
+        <div className={styles.modalBackdrop} role="dialog" aria-modal="true">
+          <div className={styles.modal}>
+            <header>
+              <div>
+                <p className={styles.eyebrow}>SITE OWNER CONFIGURATION</p>
+                <h2>Manage Refresh Balances</h2>
+                <small>
+                  Configure the Entra-authenticated Power Automate HTTP
+                  endpoint for this Resident Data list.
+                </small>
+              </div>
+              <button
+                onClick={() => setManageRefreshConfiguration(false)}
+                aria-label="Close Refresh Balances configuration"
+              >
+                ×
+              </button>
+            </header>
+            <div className={styles.form}>
+              <label>
+                Refresh Balances Endpoint
+                <input
+                  type="url"
+                  value={refreshEndpointDraft}
+                  onChange={(event) =>
+                    setRefreshEndpointDraft(event.target.value)
+                  }
+                  placeholder="https://…"
+                  autoFocus
+                />
+              </label>
+            </div>
+            {refreshEndpointError && (
+              <div className={styles.formError} role="alert">
+                {refreshEndpointError}
+              </div>
+            )}
+            <footer>
+              <button
+                onClick={() => setManageRefreshConfiguration(false)}
+                disabled={refreshEndpointSaving}
+              >
+                Cancel
+              </button>
+              <button
+                className={styles.add}
+                onClick={() => void saveRefreshConfiguration()}
+                disabled={refreshEndpointSaving}
+              >
+                {refreshEndpointSaving ? "Saving…" : "Save endpoint"}
               </button>
             </footer>
           </div>
@@ -2098,6 +2563,7 @@ function Field(props: {
             ? dateInput(props.value)
             : props.value || ""
         }
+        readOnly={props.field.readOnly}
         onChange={(e) => props.setValue(e.target.value)}
       />
     </label>

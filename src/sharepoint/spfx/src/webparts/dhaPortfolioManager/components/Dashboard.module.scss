@@ -168,12 +168,12 @@
 	color:#28465a;
 }
 .ledgerLoadingState>span:last-child {
-	dis:grid;
+	display:grid;
 	gap:4px;
 }
 .ledgerLoadingState strong,
 .ledgerLoadingState small {
-	dis:block;
+	display:block;
 }
 .ledgerLoadingState small {
 	color:#637789;
@@ -219,4 +219,20 @@
 	.ledgerLoadingSpinner {
 		animation:none;
 	}
+}
+
+.ledgerDetailModal {
+	width:min(1480px,100%);
+}
+
+.form input[readonly] {
+	cursor:not-allowed;
+	border-color:#c9d1d7;
+	background:#e9edf0;
+	color:#687782;
+	box-shadow:inset 0 1px 2px rgba(31,52,66,.08);
+}
+
+.ledgerDetailModal>.ledgerLoadingState {
+	min-height:180px;
 }
