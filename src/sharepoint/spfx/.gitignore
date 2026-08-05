@@ -5,3 +5,4 @@ dist/
 release/
 sharepoint/solution/*.sppkg
 sharepoint/solution/debug/
+.vscode/

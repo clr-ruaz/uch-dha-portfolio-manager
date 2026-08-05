@@ -1,5 +1,41 @@
+# Private or client-specific folders
+recovery/
 discovery/
 docs/
-src/power-apps
+src/power-apps/
 src/power-automate/
 documentation/
+
+# IDE and editor files
+.vscode/
+.vs/
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Python
+.env
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+__pycache__/
+*.py[cod]
+
+# Ignore local Azure Functions workspace and tools
+src/azure-functions/.vscode/
+src/azure-functions/tools/
