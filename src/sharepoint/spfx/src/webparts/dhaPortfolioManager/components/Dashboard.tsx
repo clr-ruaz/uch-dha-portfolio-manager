@@ -42,6 +42,7 @@ interface LedgerPivotRow {
   tenant: string;
   property: string;
   unit: string;
+  balance?: number;
   monthKey: string;
   month: string;
   charges: { [category: string]: number };
@@ -98,6 +99,11 @@ const money = new Intl.NumberFormat("en-US", {
 const pageSizeOptions = [10, 20, 50, 100];
 const configurationListName = "DHA Configuration";
 const refreshBalancesConfigurationTitle = "Refresh Balances Endpoint";
+const llmRequestEndpointConfigurationTitle = "LLM Request Endpoint";
+const summarizeTransactionsEndpointConfigurationTitle =
+  "Summarize Transactions Endpoint";
+const analyzeBalanceInstructionsConfigurationTitle =
+  "Analyze Balance Instructions";
 const configurationValueFieldKey = "Value";
 const flowServiceResource = "https://service.flow.microsoft.com/";
 const managePermissionsMask = 1 << 25;
@@ -204,6 +210,175 @@ const date = (value: any): string =>
   value ? new Date(value).toLocaleDateString("en-US") : "—";
 const dateInput = (value: any): string =>
   value ? String(value).slice(0, 10) : "";
+const domainIdentifier = (value: any): string | undefined => {
+  if (typeof value !== "string") return undefined;
+  const identifier = value.trim();
+  return identifier && !/^\d+$/.test(identifier) ? identifier : undefined;
+};
+const propertyGuid = (value: any): string | undefined => {
+  if (typeof value !== "string") return undefined;
+  const identifier = value.trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    identifier
+  )
+    ? identifier
+    : undefined;
+};
+const residentPropertyId = (item: Intake): string | number | undefined => {
+  const person = item.TenantName;
+  const propertyId =
+    item.propertyId ??
+    item.PropertyID ??
+    item.PropertyId ??
+    person?.propertyId ??
+    person?.PropertyID ??
+    person?.PropertyId;
+  return propertyId === undefined || propertyId === null || propertyId === ""
+    ? undefined
+    : propertyId;
+};
+const residentBillingAccountId = (item: Intake): string | number | undefined => {
+  const person = item.TenantName;
+  const billingAccountId =
+    item.BillingAccountId ??
+    item.billingAccountId ??
+    item.BillingAccountID ??
+    person?.BillingAccountId ??
+    person?.billingAccountId ??
+    person?.BillingAccountID;
+  return billingAccountId === undefined ||
+    billingAccountId === null ||
+    billingAccountId === ""
+    ? undefined
+    : billingAccountId;
+};
+const normalizeMarkdown = (value: string): string => {
+  let markdown = value.trim();
+  try {
+    const decoded = JSON.parse(markdown);
+    if (typeof decoded === "string") markdown = decoded;
+  } catch {
+    // The endpoint normally returns Markdown directly.
+  }
+  return markdown.replace(/\\r\\n|\\n|\\r/g, "\n").replace(/\r\n?/g, "\n").trim();
+};
+const markdownInline = (value: string): React.ReactNode[] =>
+  value.split(/(\*\*[^*]+\*\*)/g).map((part, index) =>
+    /^\*\*[^*]+\*\*$/.test(part) ? (
+      <strong key={index}>{part.slice(2, -2)}</strong>
+    ) : (
+      part
+    )
+  );
+const isMarkdownTableSeparator = (line: string): boolean =>
+  /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/.test(line);
+const markdownTableCells = (line: string): string[] => {
+  const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+  return trimmed.split("|").map((cell) => cell.trim());
+};
+const renderMarkdown = (value: string): React.ReactNode[] => {
+  const lines = value.replace(/\r\n?/g, "\n").split("\n");
+  const rendered: React.ReactNode[] = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (
+      index + 1 < lines.length &&
+      line.indexOf("|") >= 0 &&
+      isMarkdownTableSeparator(lines[index + 1])
+    ) {
+      const headers = markdownTableCells(line);
+      const rows: string[][] = [];
+      index += 2;
+      while (
+        index < lines.length &&
+        lines[index].indexOf("|") >= 0 &&
+        lines[index].trim()
+      ) {
+        rows.push(markdownTableCells(lines[index]));
+        index += 1;
+      }
+      rendered.push(
+        <div key={`table-${index}`} className={styles.analysisTableWrap}>
+          <table className={styles.analysisTable}>
+            <thead>
+              <tr>
+                {headers.map((header, headerIndex) => {
+                  const isAmountColumn =
+                    header.replace(/\*/g, "").trim().toLowerCase() === "amount";
+                  return (
+                    <th
+                      key={headerIndex}
+                      className={isAmountColumn ? styles.amountColumn : undefined}
+                    >
+                      {markdownInline(header)}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, rowIndex) => (
+                <tr key={rowIndex}>
+                  {headers.map((header, cellIndex) => (
+                    <td
+                      key={cellIndex}
+                      className={
+                        header.replace(/\*/g, "").trim().toLowerCase() === "amount"
+                          ? styles.amountColumn
+                          : undefined
+                      }
+                    >
+                      {markdownInline(row[cellIndex] || "")}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      index -= 1;
+      continue;
+    }
+    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    const unorderedItem = line.match(/^[-*]\s+(.+)$/);
+    const orderedItem = line.match(/^\d+\.\s+(.+)$/);
+    if (heading) {
+      const Heading =
+        heading[1].length === 1
+          ? "h3"
+          : heading[1].length === 2
+          ? "h4"
+          : "h5";
+      rendered.push(<Heading key={index}>{markdownInline(heading[2])}</Heading>);
+      continue;
+    }
+    if (unorderedItem) {
+      rendered.push(
+        <p key={index} className={styles.analysisListItem}>
+          • {markdownInline(unorderedItem[1])}
+        </p>
+      );
+      continue;
+    }
+    if (orderedItem) {
+      rendered.push(
+        <p key={index} className={styles.analysisListItem}>
+          {line.match(/^\d+\./)![0]} {markdownInline(orderedItem[1])}
+        </p>
+      );
+      continue;
+    }
+    if (!line.trim()) {
+      rendered.push(<div key={index} className={styles.analysisSpacer} />);
+      continue;
+    }
+    rendered.push(<p key={index}>{markdownInline(line)}</p>);
+  }
+
+  return rendered;
+};
 const comparableFieldValue = (
   field: FormField,
   value: any
@@ -249,7 +424,7 @@ const col: Column[] = [
     key: "transactions",
     label: "Transactions",
     type: "action",
-    value: () => "View Ledger",
+    value: () => "Recent History",
   },
   {
     key: "leaseStart",
@@ -476,6 +651,11 @@ export default function Dashboard(
   const [saving, setSaving] = React.useState(false);
   const [refreshBalancesEndpoint, setRefreshBalancesEndpoint] =
     React.useState("");
+  const [llmRequestEndpoint, setLlmRequestEndpoint] = React.useState("");
+  const [summarizeTransactionsEndpoint, setSummarizeTransactionsEndpoint] =
+    React.useState("");
+  const [analyzeBalanceInstructions, setAnalyzeBalanceInstructions] =
+    React.useState("");
   const [refreshConfigurationLoading, setRefreshConfigurationLoading] =
     React.useState(true);
   const [refreshConfigurationError, setRefreshConfigurationError] =
@@ -485,6 +665,12 @@ export default function Dashboard(
   const [manageRefreshConfiguration, setManageRefreshConfiguration] =
     React.useState(false);
   const [refreshEndpointDraft, setRefreshEndpointDraft] = React.useState("");
+  const [llmRequestEndpointDraft, setLlmRequestEndpointDraft] =
+    React.useState("");
+  const [summarizeTransactionsEndpointDraft, setSummarizeTransactionsEndpointDraft] =
+    React.useState("");
+  const [analyzeBalanceInstructionsDraft, setAnalyzeBalanceInstructionsDraft] =
+    React.useState("");
   const [refreshEndpointError, setRefreshEndpointError] = React.useState("");
   const [refreshEndpointSaving, setRefreshEndpointSaving] =
     React.useState(false);
@@ -492,8 +678,17 @@ export default function Dashboard(
     React.useState(false);
   const [refreshBalancesStatus, setRefreshBalancesStatus] = React.useState("");
   const [refreshBalancesError, setRefreshBalancesError] = React.useState("");
+  const [balanceDetailsLoading, setBalanceDetailsLoading] =
+    React.useState(false);
+  const [balanceDetailsError, setBalanceDetailsError] = React.useState("");
+  const [balanceDetails, setBalanceDetails] = React.useState("");
+  const [balanceDetailsVisible, setBalanceDetailsVisible] =
+    React.useState(false);
+  const [balanceDetailsCopied, setBalanceDetailsCopied] =
+    React.useState(false);
   const commandSentinel = React.useRef<HTMLDivElement>(null);
   const columnMenu = React.useRef<HTMLDetailsElement>(null);
+  const balanceDetailsContent = React.useRef<HTMLDivElement>(null);
   const ledgerRequestId = React.useRef(0);
   const ledgerDetailRequestId = React.useRef(0);
   const [commandBarPinned, setCommandBarPinned] = React.useState(false);
@@ -560,6 +755,61 @@ export default function Dashboard(
     },
     [get]
   );
+  const resolveLookupDomainId = React.useCallback(
+    async (
+      item: Intake | Person,
+      listName: string,
+      fieldNames: string[]
+    ): Promise<string | undefined> => {
+      const normalizedFieldNames = fieldNames.map((fieldName) =>
+        fieldName.replace(/[^a-z0-9]/gi, "").toLowerCase()
+      );
+      const fieldsResult = await get(
+        `${base}/_api/web/lists/getbytitle('${safe(
+          listName
+        )}')/fields?$select=InternalName,Title,LookupList,LookupField,TypeAsString`
+      );
+      const fields = fieldsResult.value ||
+        (fieldsResult.d && fieldsResult.d.results) || [];
+
+      for (const field of fields) {
+        const fieldNamesToMatch = [field.InternalName, field.Title].map(
+          (fieldName) => String(fieldName || "")
+            .replace(/[^a-z0-9]/gi, "")
+            .toLowerCase()
+        );
+        if (!fieldNamesToMatch.some((fieldName) =>
+          normalizedFieldNames.some(
+            (expectedFieldName) =>
+              fieldName === expectedFieldName ||
+              fieldName.slice(-expectedFieldName.length) === expectedFieldName
+          )
+        )) continue;
+
+        if (field.TypeAsString !== "Lookup") {
+          const fieldValue = domainIdentifier(item[field.InternalName]);
+          if (fieldValue) return fieldValue;
+          continue;
+        }
+
+        const lookupId = item[`${field.InternalName}Id`] ?? item[field.InternalName];
+        const directValue = domainIdentifier(lookupId);
+        if (directValue) return directValue;
+        const numericLookupId = Number(lookupId);
+        if (!isFinite(numericLookupId) || !field.LookupList || !field.LookupField)
+          continue;
+
+        const lookupListId = String(field.LookupList).replace(/[{}]/g, "");
+        const lookupItem = await get(
+          `${base}/_api/web/lists(guid'${lookupListId}')/items(${numericLookupId})?$select=${field.LookupField}`
+        );
+        const resolvedValue = domainIdentifier(lookupItem[field.LookupField]);
+        if (resolvedValue) return resolvedValue;
+      }
+      return undefined;
+    },
+    [base, get]
+  );
   const refreshConfigurationListUrl =
     `${base}/_api/web/lists/getbytitle('${safe(configurationListName)}')`;
   const loadRefreshConfiguration = React.useCallback(async (): Promise<void> => {
@@ -605,17 +855,32 @@ export default function Dashboard(
     }
     try {
       const configurationResult = await get(
-        `${refreshConfigurationListUrl}/items?$filter=Title eq '${safe(
+        `${refreshConfigurationListUrl}/items?$filter=(Title eq '${safe(
           refreshBalancesConfigurationTitle
-        )}'&$top=1`
+        )}' or Title eq '${safe(
+          llmRequestEndpointConfigurationTitle
+        )}' or Title eq '${safe(
+          summarizeTransactionsEndpointConfigurationTitle
+        )}' or Title eq '${safe(
+          analyzeBalanceInstructionsConfigurationTitle
+        )}')`
       );
       const configurationItems = configurationResult.value ||
         (configurationResult.d && configurationResult.d.results) || [];
-      const configurationItem = configurationItems[0];
+      const configurationValue = (title: string): string => String(
+        (configurationItems.find((item: any) => item.Title === title) || {})[
+          configurationValueFieldKey
+        ] || ""
+      ).trim();
       setRefreshBalancesEndpoint(
-        String(
-          configurationItem && configurationItem[configurationValueFieldKey] || ""
-        ).trim()
+        configurationValue(refreshBalancesConfigurationTitle)
+      );
+      setLlmRequestEndpoint(configurationValue(llmRequestEndpointConfigurationTitle));
+      setSummarizeTransactionsEndpoint(
+        configurationValue(summarizeTransactionsEndpointConfigurationTitle)
+      );
+      setAnalyzeBalanceInstructions(
+        configurationValue(analyzeBalanceInstructionsConfigurationTitle)
       );
     } catch (e) {
       configurationError = e instanceof Error
@@ -766,7 +1031,6 @@ export default function Dashboard(
       key: "total-credits",
       value: (row: LedgerPivotRow) => ledgerValueTotal(row.credits),
     },
-    { key: "net-balance", value: ledgerNetBalance },
   ]
     .concat(
       ledgerPivot.chargeCategories.map((category) => ({
@@ -835,7 +1099,17 @@ export default function Dashboard(
     setLedgerDetailLoading(false);
     setLedgerDetailError("");
     setLedgerDetailSort({ key: "date", desc: true });
-    setSelectedLedgerRow(row);
+    const billingAccountId = Number(row.transactions[0]?.TenantNameId || 0);
+    let resident: Intake | undefined;
+    records.some((item) => {
+      if (Number(item.TenantNameId || 0) !== billingAccountId) return false;
+      resident = item;
+      return true;
+    });
+    setSelectedLedgerRow({
+      ...row,
+      balance: resident ? num(resident.Balance) : undefined,
+    });
   };
   const closeLedgerDetails = (): void => {
     ++ledgerDetailRequestId.current;
@@ -857,6 +1131,7 @@ export default function Dashboard(
       tenant: name(item),
       property: prop(item),
       unit: unit(item),
+      balance: num(item.Balance),
       monthKey: "past-two-years",
       month: `${rangeStart.toLocaleDateString("en-US")} to ${rangeEnd.toLocaleDateString("en-US")}`,
       charges: {},
@@ -886,6 +1161,138 @@ export default function Dashboard(
     } finally {
       if (requestId === ledgerDetailRequestId.current)
         setLedgerDetailLoading(false);
+    }
+  };
+  const summarizeTransactions = async (item: Intake): Promise<void> => {
+    if (balanceDetailsLoading) return;
+    setBalanceDetailsVisible(true);
+    setBalanceDetails("");
+    setBalanceDetailsError("");
+    setBalanceDetailsCopied(false);
+    setBalanceDetailsLoading(true);
+    const userEmail = props.context.pageContext.user.email;
+    if (!summarizeTransactionsEndpoint) {
+      setBalanceDetailsError(
+        "Configure the Summarize Transactions Endpoint before requesting balance details."
+      );
+      setBalanceDetailsLoading(false);
+      return;
+    }
+    if (!userEmail) {
+      setBalanceDetailsError(
+        "The selected resident is missing a property ID, billing account ID, or current-user email."
+      );
+      setBalanceDetailsLoading(false);
+      return;
+    }
+    try {
+      const peoplePropertyId = item.TenantName
+        ? await resolveLookupDomainId(
+            item.TenantName,
+            props.peopleListName || "ResMan People",
+            ["propertyId"]
+          )
+        : undefined;
+      const intakePropertyId = await resolveLookupDomainId(
+        item,
+        props.intakeListName || "DHA Intake",
+        ["propertyId"]
+      );
+      const propertyId = [
+        peoplePropertyId,
+        intakePropertyId,
+        residentPropertyId(item),
+      ]
+        .map(propertyGuid)
+        .filter((identifier): identifier is string => Boolean(identifier))[0];
+      const billingAccountId =
+        (item.TenantName &&
+          (await resolveLookupDomainId(
+            item.TenantName,
+            props.peopleListName || "ResMan People",
+            ["billingAccountId", "billingAccount"]
+          ))) ||
+        (await resolveLookupDomainId(
+          item,
+          props.intakeListName || "DHA Intake",
+          ["billingAccountId", "billingAccount"]
+        )) ||
+        domainIdentifier(residentBillingAccountId(item));
+      if (!propertyId || !billingAccountId) {
+        throw new Error(
+          "The selected resident is missing a property ID or billing account ID."
+        );
+      }
+      const tokenProvider =
+        await props.context.aadTokenProviderFactory.getTokenProvider();
+      const accessToken = await tokenProvider.getToken(flowServiceResource);
+      const response = await window.fetch(summarizeTransactionsEndpoint, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ propertyId, billingAccountId, userEmail }),
+      });
+      if (!response.ok) {
+        const responseText = await response.text();
+        throw new Error(
+          `Balance details request failed (${response.status}): ${responseText.substring(
+            0,
+            160
+          )}`
+        );
+      }
+      const responseText = await response.text();
+      let summaryResponse: { Status?: unknown; Response?: unknown };
+      try {
+        summaryResponse = JSON.parse(responseText);
+      } catch {
+        throw new Error("Balance details returned an invalid response.");
+      }
+      if (summaryResponse.Status !== "Success") {
+        throw new Error(
+          `Balance details request was not successful: ${String(
+            summaryResponse.Status || "Unknown status"
+          )}`
+        );
+      }
+      if (typeof summaryResponse.Response !== "string") {
+        throw new Error("Balance details returned no Markdown response.");
+      }
+      setBalanceDetails(normalizeMarkdown(summaryResponse.Response));
+    } catch (e) {
+      setBalanceDetailsError(
+        e instanceof Error
+          ? e.message
+          : "Unable to request balance details for this resident."
+      );
+    } finally {
+      setBalanceDetailsLoading(false);
+    }
+  };
+  const copyBalanceDetails = async (): Promise<void> => {
+    try {
+      const content = balanceDetailsContent.current;
+      if (!content) throw new Error("Balance details are not available to copy.");
+      const plainText = content.innerText;
+      if (
+        navigator.clipboard.write &&
+        typeof ClipboardItem !== "undefined"
+      ) {
+        const richText = `<!DOCTYPE html><html><body>${content.innerHTML}</body></html>`;
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/html": new Blob([richText], { type: "text/html" }),
+            "text/plain": new Blob([plainText], { type: "text/plain" }),
+          }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(plainText);
+      }
+      setBalanceDetailsCopied(true);
+    } catch {
+      setBalanceDetailsCopied(false);
     }
   };
   const activeColumns = col.filter((item) => columns.indexOf(item.key) >= 0);
@@ -1066,15 +1473,22 @@ export default function Dashboard(
   };
   const openRefreshConfiguration = (): void => {
     setRefreshEndpointDraft(refreshBalancesEndpoint);
+    setLlmRequestEndpointDraft(llmRequestEndpoint);
+    setSummarizeTransactionsEndpointDraft(summarizeTransactionsEndpoint);
+    setAnalyzeBalanceInstructionsDraft(analyzeBalanceInstructions);
     setRefreshEndpointError("");
     setManageRefreshConfiguration(true);
   };
   const saveRefreshConfiguration = async (): Promise<void> => {
     const endpoint = refreshEndpointDraft.trim();
+    const llmEndpoint = llmRequestEndpointDraft.trim();
+    const summarizeEndpoint = summarizeTransactionsEndpointDraft.trim();
+    const instructions = analyzeBalanceInstructionsDraft.trim();
     setRefreshEndpointError("");
-    if (endpoint) {
+    for (const endpointToValidate of [endpoint, llmEndpoint, summarizeEndpoint]) {
+      if (!endpointToValidate) continue;
       try {
-        const parsedEndpoint = new URL(endpoint);
+        const parsedEndpoint = new URL(endpointToValidate);
         if (parsedEndpoint.protocol !== "https:")
           throw new Error("The endpoint must use HTTPS.");
       } catch (e) {
@@ -1088,45 +1502,47 @@ export default function Dashboard(
     }
     setRefreshEndpointSaving(true);
     try {
-      const configurationResult = await get(
-        `${refreshConfigurationListUrl}/items?$select=Id&$filter=Title eq '${safe(
-          refreshBalancesConfigurationTitle
-        )}'&$top=1`
-      );
-      const configurationItems = configurationResult.value ||
-        (configurationResult.d && configurationResult.d.results) || [];
-      const configurationItem = configurationItems[0];
-      const itemUrl = configurationItem
-        ? `${refreshConfigurationListUrl}/items(${configurationItem.Id})`
-        : `${refreshConfigurationListUrl}/items`;
-      const response = await props.context.spHttpClient.fetch(
-        itemUrl,
-        SPHttpClient.configurations.v1,
-        {
-          method: "POST",
-          headers: {
-            Accept: "application/json;odata=nometadata",
-            "Content-Type": "application/json;odata=nometadata",
-            ...(configurationItem
-              ? { "IF-MATCH": "*", "X-HTTP-Method": "MERGE" }
-              : {}),
-          },
-          body: JSON.stringify({
-            Title: refreshBalancesConfigurationTitle,
-            [configurationValueFieldKey]: endpoint,
-          }),
-        }
-      );
-      if (!response.ok) {
-        const responseText = await response.text();
-        throw new Error(
-          `Unable to save the endpoint (${response.status}): ${responseText.substring(
-            0,
-            160
-          )}`
+      const saveConfiguration = async (title: string, value: string): Promise<void> => {
+        const configurationResult = await get(
+          `${refreshConfigurationListUrl}/items?$select=Id&$filter=Title eq '${safe(title)}'&$top=1`
         );
-      }
+        const configurationItems = configurationResult.value ||
+          (configurationResult.d && configurationResult.d.results) || [];
+        const configurationItem = configurationItems[0];
+        const response = await props.context.spHttpClient.fetch(
+          configurationItem
+            ? `${refreshConfigurationListUrl}/items(${configurationItem.Id})`
+            : `${refreshConfigurationListUrl}/items`,
+          SPHttpClient.configurations.v1,
+          {
+            method: "POST",
+            headers: {
+              Accept: "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata",
+              ...(configurationItem
+                ? { "IF-MATCH": "*", "X-HTTP-Method": "MERGE" }
+                : {}),
+            },
+            body: JSON.stringify({ Title: title, [configurationValueFieldKey]: value }),
+          }
+        );
+        if (!response.ok) {
+          const responseText = await response.text();
+          throw new Error(
+            `Unable to save ${title} (${response.status}): ${responseText.substring(0, 160)}`
+          );
+        }
+      };
+      await Promise.all([
+        saveConfiguration(refreshBalancesConfigurationTitle, endpoint),
+        saveConfiguration(llmRequestEndpointConfigurationTitle, llmEndpoint),
+        saveConfiguration(summarizeTransactionsEndpointConfigurationTitle, summarizeEndpoint),
+        saveConfiguration(analyzeBalanceInstructionsConfigurationTitle, instructions),
+      ]);
       setRefreshBalancesEndpoint(endpoint);
+      setLlmRequestEndpoint(llmEndpoint);
+      setSummarizeTransactionsEndpoint(summarizeEndpoint);
+      setAnalyzeBalanceInstructions(instructions);
       setRefreshBalancesStatus("");
       setRefreshBalancesError("");
       setManageRefreshConfiguration(false);
@@ -1753,7 +2169,19 @@ export default function Dashboard(
                               void openResidentLedgerDetails(item);
                             }}
                           >
-                            View Ledger
+                            Recent History
+                          </a>
+                        ) : column.key === "balance" && num(column.value(item)) > 0 ? (
+                          <a
+                            href="#"
+                            aria-busy={balanceDetailsLoading}
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              void summarizeTransactions(item);
+                            }}
+                          >
+                            {display(item, column, base)}
                           </a>
                         ) : (
                           display(item, column, base)
@@ -1833,7 +2261,7 @@ export default function Dashboard(
         <div className={styles.tableHeader}>
           <div>
             <h2>
-              Transaction Ledger <span>({filteredLedgerRows.length})</span>
+              Transaction Ledger for {monthLabel(ledgerMonth)} <span>({filteredLedgerRows.length})</span>
             </h2>
             <p>
               {ledgerEntries.length} transactions grouped by tenant, property,
@@ -1872,7 +2300,7 @@ export default function Dashboard(
                   <span>Resident</span>
                 </th>
                 <th rowSpan={ledgerHeaderFilters ? 3 : 2}><span>Month</span></th>
-                <th colSpan={4} className={styles.totalsGroup}>
+                <th colSpan={3} className={styles.totalsGroup}>
                   <span>Totals</span>
                 </th>
                 {ledgerPivot.chargeCategories.length > 0 && (
@@ -1904,7 +2332,6 @@ export default function Dashboard(
                 <th className={styles.totalCategory}><span>Charges</span></th>
                 <th className={styles.totalCategory}><span>Payments</span></th>
                 <th className={styles.totalCategory}><span>Credits</span></th>
-                <th className={styles.totalCategory}><span>NET Balance</span></th>
                 {ledgerPivot.chargeCategories.map((category) => (
                   <th key={`charge-${category}`}><span>{category}</span></th>
                 ))}
@@ -1954,7 +2381,7 @@ export default function Dashboard(
                 <tr className={styles.ledgerLoadingRow}>
                   <td
                     colSpan={
-                      6 +
+                      5 +
                       ledgerPivot.chargeCategories.length +
                       ledgerPivot.paymentCategories.length +
                       ledgerPivot.creditCategories.length
@@ -1999,9 +2426,6 @@ export default function Dashboard(
                   <td className={`${styles.pivotValue} ${styles.totalValue}`}>
                     {money.format(ledgerValueTotal(row.credits))}
                   </td>
-                  <td className={`${styles.pivotValue} ${styles.netBalanceValue}`}>
-                    {money.format(ledgerNetBalance(row))}
-                  </td>
                   {ledgerPivot.chargeCategories.map((category) => (
                     <td key={`charge-${category}`} className={styles.pivotValue}>
                       {row.charges[category]
@@ -2029,7 +2453,7 @@ export default function Dashboard(
                 <tr>
                   <td
                     colSpan={
-                      6 +
+                      5 +
                       ledgerPivot.chargeCategories.length +
                       ledgerPivot.paymentCategories.length +
                       ledgerPivot.creditCategories.length
@@ -2087,6 +2511,11 @@ export default function Dashboard(
                 <small>
                   {selectedLedgerRow.property || "Property"} · {selectedLedgerRow.unit || "Unit"} · {selectedLedgerRow.month}
                 </small>
+                {selectedLedgerRow.balance !== undefined && (
+                  <p className={styles.ledgerDetailBalance}>
+                    Current Balance: <strong>{money.format(selectedLedgerRow.balance)}</strong>
+                  </p>
+                )}
               </div>
               <button
                 onClick={closeLedgerDetails}
@@ -2172,9 +2601,59 @@ export default function Dashboard(
           </div>
         </div>
       )}
+      {balanceDetailsVisible && (
+        <div
+          className={styles.modalBackdrop}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Balance details"
+        >
+          <div className={`${styles.modal} ${styles.analysisModal}`}>
+            <header>
+              <div>
+                <p className={styles.eyebrow}>RESIDENT BALANCE</p>
+                <h2>Balance Details</h2>
+              </div>
+              <button
+                onClick={() => setBalanceDetailsVisible(false)}
+                aria-label="Close balance details"
+              >
+                ×
+              </button>
+            </header>
+            {balanceDetailsLoading ? (
+              <div className={styles.analysisProgress} role="status">
+                <span className={styles.analysisSpinner} aria-hidden="true" />
+                <span>Analyzing transactions with AI to generate a summary. This may take a few seconds.</span>
+              </div>
+            ) : balanceDetailsError ? (
+              <div className={styles.error} role="alert">
+                {balanceDetailsError}
+              </div>
+            ) : (
+              <div ref={balanceDetailsContent} className={styles.analysisContent}>
+                {renderMarkdown(balanceDetails)}
+              </div>
+            )}
+            <footer>
+              {!balanceDetailsLoading && !balanceDetailsError && (
+                <button
+                  onClick={() => void copyBalanceDetails()}
+                  disabled={!balanceDetails}
+                >
+                  {balanceDetailsCopied ? "Copied" : "Copy summary"}
+                </button>
+              )}
+              <button onClick={() => setBalanceDetailsVisible(false)}>
+                Close
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
       {manageRefreshConfiguration && (
         <div className={styles.modalBackdrop} role="dialog" aria-modal="true">
-          <div className={styles.modal}>
+          <div className={`${styles.modal} ${styles.configurationModal}`}>
             <header>
               <div>
                 <p className={styles.eyebrow}>SITE OWNER CONFIGURATION</p>
@@ -2191,9 +2670,10 @@ export default function Dashboard(
                 ×
               </button>
             </header>
-            <div className={styles.form}>
+            <div className={`${styles.form} ${styles.configurationForm}`}>
               <label>
-                Refresh Balances Endpoint
+                <span>Refresh Balances Endpoint</span>
+                <small>Invoked when resident balances are refreshed.</small>
                 <input
                   type="url"
                   value={refreshEndpointDraft}
@@ -2202,6 +2682,41 @@ export default function Dashboard(
                   }
                   placeholder="https://…"
                   autoFocus
+                />
+              </label>
+              <label>
+                <span>LLM Request Endpoint</span>
+                <small>Endpoint for requesting AI capabilities.</small>
+                <input
+                  type="url"
+                  value={llmRequestEndpointDraft}
+                  onChange={(event) =>
+                    setLlmRequestEndpointDraft(event.target.value)
+                  }
+                  placeholder="https://…"
+                />
+              </label>
+              <label>
+                <span>Summarize Transactions Endpoint</span>
+                <small>Used to request a summary of transaction history.</small>
+                <input
+                  type="url"
+                  value={summarizeTransactionsEndpointDraft}
+                  onChange={(event) =>
+                    setSummarizeTransactionsEndpointDraft(event.target.value)
+                  }
+                  placeholder="https://…"
+                />
+              </label>
+              <label>
+                <span>Analyze Balance Instructions</span>
+                <small>System guidance sent with each balance analysis request.</small>
+                <textarea
+                  value={analyzeBalanceInstructionsDraft}
+                  onChange={(event) =>
+                    setAnalyzeBalanceInstructionsDraft(event.target.value)
+                  }
+                  rows={6}
                 />
               </label>
             </div>
@@ -2222,7 +2737,7 @@ export default function Dashboard(
                 onClick={() => void saveRefreshConfiguration()}
                 disabled={refreshEndpointSaving}
               >
-                {refreshEndpointSaving ? "Saving…" : "Save endpoint"}
+                {refreshEndpointSaving ? "Saving…" : "Save configuration"}
               </button>
             </footer>
           </div>
@@ -2610,6 +3125,21 @@ function compare(
   sort: { key: string; desc: boolean },
   base: string
 ): number {
+  const direction = sort.desc ? -1 : 1;
+  if (sort.key !== "resident") {
+    const column = getColumn(sort.key);
+    if (column.type === "money") {
+      return direction * (num(column.value(left)) - num(column.value(right)));
+    }
+    if (column.type === "date") {
+      const leftDate = calendarDay(column.value(left));
+      const rightDate = calendarDay(column.value(right));
+      if (leftDate === undefined && rightDate === undefined) return 0;
+      if (leftDate === undefined) return 1;
+      if (rightDate === undefined) return -1;
+      return direction * (leftDate - rightDate);
+    }
+  }
   const leftValue =
     sort.key === "resident"
       ? name(left)
@@ -2619,7 +3149,7 @@ function compare(
       ? name(right)
       : display(right, getColumn(sort.key), base);
   return (
-    (sort.desc ? -1 : 1) *
+    direction *
     leftValue.localeCompare(rightValue, undefined, { numeric: true })
   );
 }
