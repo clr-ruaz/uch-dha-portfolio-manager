@@ -485,7 +485,7 @@ const col: Column[] = [
     key: "tenantPortion",
     label: "Tenant Portion",
     type: "money",
-    value: (r) => r.HAPAmendment1Portion,
+    value: (r) => r.Tenant_x0020_Portion,
   },
   {
     key: "caseworkerName",
@@ -601,6 +601,8 @@ export default function Dashboard(
   const [error, setError] = React.useState("");
   const [ledgerError, setLedgerError] = React.useState("");
   const [formError, setFormError] = React.useState("");
+  const [missingHapModalVisible, setMissingHapModalVisible] =
+    React.useState(false);
   const [lastRefresh, setLastRefresh] = React.useState(
     new Date().toLocaleTimeString()
   );
@@ -1436,6 +1438,10 @@ export default function Dashboard(
     window.setTimeout(() => window.URL.revokeObjectURL(url), 0);
   };
   const kpis = calculateKpis(filtered, base);
+  const hapSubsidyKpi = kpis.filter((kpi) => kpi.title === "HAP Subsidy")[0];
+  const missingHapCount = hapSubsidyKpi
+    ? hapSubsidyKpi.missingHapCount || 0
+    : 0;
   const charts = calculateDashboardCharts(filtered);
   const snapshotMax = Math.max(
     1,
@@ -1839,9 +1845,56 @@ export default function Dashboard(
             <span>{kpi.title}</span>
             <strong>{kpi.value}</strong>
             <small>{kpi.subtitle}</small>
+            {kpi.missingHapCount ? (
+              <button
+                type="button"
+                className={styles.kpiAlert}
+                aria-label={`Review ${kpi.missingHapCount} tenant${
+                  kpi.missingHapCount === 1 ? "" : "s"
+                } with a monthly rent but no HAP portion`}
+                title="Review missing HAP portions"
+                onClick={() => setMissingHapModalVisible(true)}
+              >
+                <span className={styles.kpiAlertEnvelope} aria-hidden="true">
+                  ✉
+                  <span className={styles.kpiAlertUnread}>1</span>
+                </span>
+              </button>
+            ) : null}
           </div>
         ))}
       </section>
+      {missingHapModalVisible && (
+        <div className={styles.modalBackdrop} role="dialog" aria-modal="true">
+          <div className={`${styles.modal} ${styles.kpiAlertModal}`}>
+            <header>
+              <div>
+                <p className={styles.eyebrow}>HAP SUBSIDY REVIEW</p>
+                <h2>HAP portion needs attention</h2>
+              </div>
+              <button
+                onClick={() => setMissingHapModalVisible(false)}
+                aria-label="Close HAP subsidy review"
+              >
+                ×
+              </button>
+            </header>
+            <p className={styles.kpiAlertMessage}>
+              HAP Subsidy might be incorrect because {missingHapCount} tenant
+              {missingHapCount === 1 ? " has" : "s have"} a Monthly Rent but
+              no HAP Portion indicated.
+            </p>
+            <footer>
+              <button
+                className={styles.add}
+                onClick={() => setMissingHapModalVisible(false)}
+              >
+                Close
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
       <section className={styles.chartGrid}>
         <article className={styles.chartPanel}>
           <header className={styles.chartHeader}>
@@ -3528,14 +3581,26 @@ function buildLedgerPivot(
 function calculateKpis(
   records: Intake[],
   base: string
-): Array<{ title: string; value: string; subtitle: string }> {
+): Array<{
+  title: string;
+  value: string;
+  subtitle: string;
+  missingHapCount?: number;
+}> {
   const rent = records.reduce(
     (total, item) => total + num(item.MonthlyRent),
     0
   );
   const hap = records.reduce((total, item) => total + num(item.HAPPortion), 0);
+  const missingHapCount = records.filter(
+    (item) =>
+      num(item.MonthlyRent) > 0 &&
+      (item.HAPPortion === undefined ||
+        item.HAPPortion === null ||
+        String(item.HAPPortion).trim() === "")
+  ).length;
   const tenant = records.reduce(
-    (total, item) => total + num(item.HAPAmendment1Portion),
+    (total, item) => total + num(item.Tenant_x0020_Portion),
     0
   );
   const owing = records.filter((item) => num(item.Balance) > 0);
@@ -3566,6 +3631,7 @@ function calculateKpis(
       subtitle: `${
         rent ? ((hap / rent) * 100).toFixed(1) : "0.0"
       }% of rent covered`,
+      missingHapCount,
     },
     {
       title: "Tenant Portion",

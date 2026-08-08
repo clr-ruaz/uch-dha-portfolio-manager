@@ -1,5 +1,5 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
-  "solution": { "name": "DHA Portfolio Manager", "id": "42be27fe-e6e8-4aa7-96c1-38e84a92340d", "version": "1.0.0.4", "includeClientSideAssets": true, "skipFeatureDeployment": false, "isDomainIsolated": false, "webApiPermissionRequests": [{ "resource": "Microsoft Flow Service", "scope": "user_impersonation" }] },
+  "solution": { "name": "DHA Portfolio Manager", "id": "42be27fe-e6e8-4aa7-96c1-38e84a92340d", "version": "1.0.0.7", "includeClientSideAssets": true, "skipFeatureDeployment": false, "isDomainIsolated": false, "webApiPermissionRequests": [{ "resource": "Microsoft Flow Service", "scope": "user_impersonation" }] },
   "paths": { "zippedPackage": "solution/dha-portfolio-manager-spap.sppkg" }
 }
