@@ -1,0 +1,11 @@
+<environmentvariabledefinition schemaname="clr_UPMDHAAzureFunctionSecret">
+  <defaultvalue>UCH-AzureFunction-Code</defaultvalue>
+  <displayname default="UPM-DHA Azure Function (Secret | CSV to XLSX)">
+    <label description="UPM-DHA Azure Function (Secret | CSV to XLSX)" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.1</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

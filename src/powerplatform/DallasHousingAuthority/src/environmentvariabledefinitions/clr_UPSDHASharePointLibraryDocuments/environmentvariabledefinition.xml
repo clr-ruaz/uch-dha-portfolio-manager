@@ -1,0 +1,16 @@
+<environmentvariabledefinition schemaname="clr_UPSDHASharePointLibraryDocuments">
+  <apiid>/providers/microsoft.powerapps/apis/shared_sharepointonline</apiid>
+  <defaultvalue>8e513743-7e71-4268-855e-b35c467ffed3</defaultvalue>
+  <displayname default="UPM-DHA SharePoint Library (Documents)">
+    <label description="UPM-DHA SharePoint Library (Documents)" languagecode="1033" />
+  </displayname>
+  <introducedversion>0.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <parameterkey>table</parameterkey>
+  <parentdefinitionid>
+    <schemaname>clr_UPMDHASharePointSite</schemaname>
+  </parentdefinitionid>
+  <secretstore>0</secretstore>
+  <type>100000004</type>
+</environmentvariabledefinition>

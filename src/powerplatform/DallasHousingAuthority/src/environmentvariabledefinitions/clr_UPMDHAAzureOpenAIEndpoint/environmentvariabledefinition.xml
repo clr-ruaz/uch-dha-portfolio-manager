@@ -1,0 +1,11 @@
+<environmentvariabledefinition schemaname="clr_UPMDHAAzureOpenAIEndpoint">
+  <defaultvalue>https://uch-openai.openai.azure.com/openai/responses?api-version=2025-04-01-preview</defaultvalue>
+  <displayname default="UPM-DHA Azure OpenAI (Endpoint)">
+    <label description="UPM-DHA Azure OpenAI (Endpoint)" languagecode="1033" />
+  </displayname>
+  <introducedversion>0.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

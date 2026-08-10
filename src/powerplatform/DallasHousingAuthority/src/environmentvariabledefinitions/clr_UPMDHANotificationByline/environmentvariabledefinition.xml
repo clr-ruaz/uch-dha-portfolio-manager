@@ -1,0 +1,11 @@
+<environmentvariabledefinition schemaname="clr_UPMDHANotificationByline">
+  <defaultvalue>&lt;p class="editor-paragraph"&gt;Thanks,&lt;/p&gt;&lt;p class="editor-paragraph"&gt;&lt;b&gt;&lt;strong class="editor-text-bold"&gt;DHA Tracker Automation&lt;/strong&gt;&lt;/b&gt;&lt;br&gt;&lt;i&gt;&lt;em class="editor-text-italic"&gt;Automated Notification&lt;/em&gt;&lt;/i&gt;&lt;/p&gt;</defaultvalue>
+  <displayname default="UPM-DHA Notification (Byline)">
+    <label description="UPM-DHA Notification (Byline)" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

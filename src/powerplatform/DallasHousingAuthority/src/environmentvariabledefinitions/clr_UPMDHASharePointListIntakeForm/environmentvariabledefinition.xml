@@ -1,0 +1,16 @@
+<environmentvariabledefinition schemaname="clr_UPMDHASharePointListIntakeForm">
+  <apiid>/providers/microsoft.powerapps/apis/shared_sharepointonline</apiid>
+  <defaultvalue>b035d1de-7c99-46e1-a71b-aecce8bdd2a9</defaultvalue>
+  <displayname default="UPM-DHA SharePoint List (Intake Form)">
+    <label description="UPM-DHA SharePoint List (Intake Form)" languagecode="1033" />
+  </displayname>
+  <introducedversion>0.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <parameterkey>table</parameterkey>
+  <parentdefinitionid>
+    <schemaname>clr_UPMDHASharePointSite</schemaname>
+  </parentdefinitionid>
+  <secretstore>0</secretstore>
+  <type>100000004</type>
+</environmentvariabledefinition>

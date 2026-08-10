@@ -1,0 +1,605 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline-1": {
+        "api": {
+          "name": "shared_sharepointonline"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UPMDHASharePointConnection"
+        },
+        "runtimeSource": "embedded"
+      },
+      "shared_office365users": {
+        "api": {
+          "name": "shared_office365users"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UPMDHAO365UserConnection"
+        },
+        "runtimeSource": "embedded"
+      },
+      "shared_office365-1": {
+        "api": {
+          "name": "shared_office365"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UCHAVPO365OutlookConnection"
+        },
+        "runtimeSource": "embedded"
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)": {
+          "defaultValue": "https://upsidecapitalholdings.sharepoint.com/Automation/UPM-DHA/DEV",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointSite"
+          }
+        },
+        "UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)": {
+          "defaultValue": "26ac3f0d-5a5d-47cd-a6b8-1e99b9d34b87",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListIntakeForm"
+          }
+        },
+        "UPM-DHA Solution Label (Project Name) (clr_UPMDHASolutionLabelProjectName)": {
+          "defaultValue": "DHA Tracker",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASolutionLabelProjectName"
+          }
+        },
+        "UPM-DHA Notification (Byline) (clr_UPMDHANotificationByline)": {
+          "defaultValue": "<p class=\"editor-paragraph\">Thanks,</p><p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">DHA Tracker Automation</strong></b><br><i><em class=\"editor-text-italic\">Automated Notification</em></i></p>",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHANotificationByline"
+          }
+        },
+        "UPM-DHA Notification (DIF Reminder | To) (clr_UPMDHANotificationDIFReminderTo)": {
+          "defaultValue": "chris@upsidecapitalholdings.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHANotificationDIFReminderTo"
+          }
+        },
+        "UPM-DHA Notification (From) (clr_UPMDHANotificationFrom)": {
+          "defaultValue": "chris@upsidecapitalholdings.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHANotificationFrom"
+          }
+        },
+        "UPM-DHA Notification (DIF Changes | Cc) (clr_UPMDHANotificationDIFChangesCc)": {
+          "defaultValue": "chris@upsidecapitalholdings.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHANotificationDIFChangesCc"
+          }
+        }
+      },
+      "triggers": {
+        "Recurrence": {
+          "type": "Recurrence",
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 15,
+            "startTime": "2026-07-14T02:00:00Z"
+          },
+          "metadata": {
+            "operationMetadataId": "b6dd6487-fb9b-4357-9135-2048b5e7e731"
+          }
+        }
+      },
+      "actions": {
+        "Recently_mod_items": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+              "table": "@parameters('UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)')",
+              "$filter": "Modified ge '@{outputs('Timestamp_Filter')}'"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "GetItems",
+              "connectionName": "shared_sharepointonline-1"
+            }
+          },
+          "runAfter": {
+            "Timestamp_Filter": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "94539012-1b22-4f4f-8f67-09fe2fca7d36"
+          }
+        },
+        "Timestamp_Filter": {
+          "type": "Compose",
+          "inputs": "@formatDateTime(\r\n  addMinutes(utcNow(), -15), \r\n  'yyyy-MM-ddTHH:mm:ssZ'\r\n)",
+          "runAfter": {
+            "Init_Recipient_Names": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Init_Recipient_Names": {
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "aryRecipient_Names",
+                "type": "array"
+              }
+            ]
+          },
+          "runAfter": {}
+        },
+        "MOD_Items_Exist": {
+          "type": "If",
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@empty(outputs('Recently_mod_items')?['body/value'])",
+                  "@false"
+                ]
+              }
+            ]
+          },
+          "actions": {
+            "Get_Call_Back_URL": {
+              "type": "Workflow",
+              "inputs": {
+                "host": {
+                  "workflowReferenceName": "7d4722cf-b06f-f111-ab0d-7c1e525965e1"
+                },
+                "body": {
+                  "text": "UPM-DHA SharePoint Connector"
+                }
+              }
+            },
+            "Get_Recipients": {
+              "type": "Foreach",
+              "foreach": "@split(\r\n  replace(\r\n    parameters('UPM-DHA Notification (DIF Reminder | To) (clr_UPMDHANotificationDIFReminderTo)'),\r\n    ' ',\r\n    ''\r\n  ),\r\n  ';'\r\n)",
+              "actions": {
+                "UPN_Provided": {
+                  "type": "If",
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@empty(string(item()))",
+                          "@false"
+                        ]
+                      }
+                    ]
+                  },
+                  "actions": {
+                    "Get_user_profile": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "id": "@item()"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365users",
+                          "operationId": "UserProfile_V2",
+                          "connectionName": "shared_office365users"
+                        }
+                      }
+                    },
+                    "Add_Recipient_Name": {
+                      "type": "AppendToArrayVariable",
+                      "inputs": {
+                        "name": "aryRecipient_Names",
+                        "value": "@outputs('Get_user_profile')?['body/givenName']"
+                      },
+                      "runAfter": {
+                        "Get_user_profile": [
+                          "Succeeded"
+                        ]
+                      }
+                    }
+                  },
+                  "else": {
+                    "actions": {}
+                  }
+                }
+              },
+              "runAfter": {
+                "Get_Call_Back_URL": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "MOD_Tenants": {
+              "type": "Foreach",
+              "foreach": "@outputs('Recently_mod_items')?['body/value']",
+              "actions": {
+                "Get_Version_History": {
+                  "type": "Http",
+                  "inputs": {
+                    "uri": "@body('Get_Call_Back_URL')?['callback_url']",
+                    "method": "POST",
+                    "body": [
+                      {
+                        "Method": "GET",
+                        "Output": "",
+                        "Site Address": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                        "Uri": "_api/web/lists(guid'@{parameters('UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)')}')/items(@{items('MOD_Tenants')?['ID']})/versions"
+                      }
+                    ]
+                  },
+                  "runtimeConfiguration": {
+                    "contentTransfer": {
+                      "transferMode": "Chunked"
+                    }
+                  }
+                },
+                "Version_History": {
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@body('Get_Version_History')?['results']",
+                    "select": {
+                      "Unit": "Unit @{item()?['Tenant_x005f_x0020_x005f_Name_x005f_x003a_x005f__x005f_x0020_x005f_u/LookupValue']}, @{item()?['Tenant_x005f_x0020_x005f_Name_x005f_x003a_x005f__x005f_x0020_x005f_p/LookupValue']}",
+                      "LeaseStart": "@if(\r\n  empty(string(item()?['Tenant_x005f_x0020_x005f_Name_x005f_x003a_x005f__x005f_x0020_x005f_l/LookupValue'])),\r\n  null,\r\n  formatDateTime(\r\n    item()?['Tenant_x005f_x0020_x005f_Name_x005f_x003a_x005f__x005f_x0020_x005f_l/LookupValue'],\r\n    'yyyy-MM-dd'\r\n  )\r\n)",
+                      "LeaseEnd": "@if(\r\n  empty(string(item()?['Tenant_x005f_x0020_x005f_Name_x005f_x003a_x005f__x005f_x0020_x005f_l0/LookupValue'])),\r\n  null,\r\n  formatDateTime(\r\n    item()?['Tenant_x005f_x0020_x005f_Name_x005f_x003a_x005f__x005f_x0020_x005f_l0/LookupValue'],\r\n    'yyyy-MM-dd'\r\n  )\r\n)",
+                      "MoveIn": "@if(\r\n  empty(string(item()?['Tenant_x005f_x0020_x005f_Name_x005f_x003a_x005f__x005f_x0020_x005f_m/LookupValue'])),\r\n  null,\r\n  formatDateTime(\r\n    item()?['Tenant_x005f_x0020_x005f_Name_x005f_x003a_x005f__x005f_x0020_x005f_m/LookupValue'],\r\n    'yyyy-MM-dd'\r\n  )\r\n)",
+                      "ResidenceStatus": "@item()?['Tenant_x005f_x0020_x005f_Name_x005f_x003a_x005f__x005f_x0020_x005f_r/LookupValue']",
+                      "CaseworkerName": "@item()?['CaseworkerName']",
+                      "CaseworkerContact": "@item()?['CaseworkerContact']",
+                      "DHAStatus": "@item()?['DHAStatus']",
+                      "HAPContractStart": "@if(\r\n  not(empty(string(item()?['HAPContractStart']))),\r\n  formatDateTime(\r\n    item()?['HAPContractStart'],\r\n    'yyyy-MM-dd'\r\n  ),\r\n  null\r\n)",
+                      "HAPContractEnd": "@if(\r\n  not(empty(string(item()?['HAPContractEnd']))),\r\n  formatDateTime(\r\n    item()?['HAPContractEnd'],\r\n    'yyyy-MM-dd'\r\n  ),\r\n  null\r\n)",
+                      "MonthlyRent": "@item()?['MonthlyRent']",
+                      "HAPPortion": "@item()?['HAPPortion']",
+                      "TenantPortion": "@if(\r\n  not(empty(string(item()?['Tenant_x005f_x0020_x005f_Portion']))),\r\n  float(\r\n    string(\r\n      item()?['Tenant_x005f_x0020_x005f_Portion']\r\n    )\r\n  ),\r\n  null\r\n)",
+                      "ApplicationFee": "@item()?['ApplicationFee']",
+                      "AdministrativeFee": "@item()?['AdministrativeFee']",
+                      "RiskFee": "@item()?['RiskFee']",
+                      "LandlordIncentiveFee": "@item()?['LandlordIncentiveFee']",
+                      "SecurityDeposit": "@item()?['SecurityDeposit']",
+                      "HAPAmendment1Date": "@if(\r\n  not(empty(string(item()?['HAPAmendment1Date']))),\r\n  formatDateTime(\r\n    item()?['HAPAmendment1Date'],\r\n    'yyyy-MM-dd'\r\n  ),\r\n  null\r\n)",
+                      "HAPAmendment2Date": "@if(\r\n  not(empty(string(item()?['HAPAmendment2Date']))),\r\n  formatDateTime(\r\n    item()?['HAPAmendment2Date'],\r\n    'yyyy-MM-dd'\r\n  ),\r\n  null\r\n)",
+                      "HAPAmendment3Date": "@if(\r\n  not(empty(string(item()?['HAPAmendment3Date']))),\r\n  formatDateTime(\r\n    item()?['HAPAmendment3Date'],\r\n    'yyyy-MM-dd'\r\n  ),\r\n  null\r\n)",
+                      "HAPAmendment1Portion": "@item()?['HAPAmendment1Portion']",
+                      "HAPAmendment2Portion": "@item()?['HAPAmendment2Portion']",
+                      "HAPAmendment3Portion": "@item()?['HAPAmendment3Portion']",
+                      "Modified": "@item()?['Modified']"
+                    }
+                  },
+                  "runAfter": {
+                    "Get_Version_History": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Recent_History": {
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@body('Version_History')",
+                    "where": "@less(item()?['Modified'],outputs('Timestamp_Filter'))"
+                  },
+                  "runAfter": {
+                    "Version_History": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Current_Version": {
+                  "type": "ParseJson",
+                  "inputs": {
+                    "content": "@first(body('Version_History'))",
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "Unit": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "LeaseStart": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "LeaseEnd": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "MoveIn": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ResidenceStatus": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "CaseworkerContact": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "DHAStatus": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "HAPContractStart": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "HAPContractEnd": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "MonthlyRent": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "HAPPortion": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "TenantPortion": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "ApplicationFee": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "AdministrativeFee": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "RiskFee": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "LandlordIncentiveFee": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "SecurityDeposit": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "HAPContract": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "WelcomeLetter": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "HAPAmendment1Date": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "HAPAmendment2Date": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "HAPAmendment3Date": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "HAPAmendment1Portion": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "HAPAmendment2Portion": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "HAPAmendment3Portion": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "Modified": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "runAfter": {
+                    "Previous_Version": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Previous_Version": {
+                  "type": "Compose",
+                  "inputs": "@first(body('Recent_History'))",
+                  "runAfter": {
+                    "Recent_History": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "No_Prev_Version": {
+                  "type": "If",
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@empty(outputs('Previous_Version'))",
+                          "@true"
+                        ]
+                      }
+                    ]
+                  },
+                  "actions": {
+                    "New_Item_Summary": {
+                      "type": "Compose",
+                      "inputs": "<table>\n  <tr>\n    <th>Tenant Details</th>\n    <th>Current Value</th>\n  </tr>\n  <tr>\n    <td>Unit / Property</td>\n    <td>@{body('Current_Version')?['Unit']}</td>\n  </tr>\n  <tr>\n    <td>Lease Start</td>\n    <td>@{body('Current_Version')?['LeaseStart']}</td>\n  </tr>\n  <tr>\n    <td>Lease End</td>\n    <td>@{body('Current_Version')?['LeaseEnd']}</td>\n  </tr>\n  <tr>\n    <td>Move-In</td>\n    <td>@{body('Current_Version')?['MoveIn']}</td>\n  </tr>\n  <tr>\n    <td>Residence Status</td>\n    <td>@{body('Current_Version')?['ResidenceStatus']}</td>\n  </tr>\n  <tr>\n    <td>DHA Status</td>\n    <td>@{body('Current_Version')?['DHAStatus']}</td>\n  </tr>\n  <tr>\n    <td>Caseworker Name</td>\n    <td>@{body('Current_Version')?['CaseworkerName']}</td>\n  </tr>\n  <tr>\n    <td>Caseworker Contact</td>\n    <td>@{body('Current_Version')?['CaseworkerContact']}</td>\n  </tr>\n  <tr>\n    <td>DHA Contract Start</td>\n    <td>@{body('Current_Version')?['HAPContractStart']}</td>\n  </tr>\n  <tr>\n    <td>DHA Contract End</td>\n    <td>@{body('Current_Version')?['HAPContractEnd']}</td>\n  </tr>\n  <tr>\n    <td>Monthly Rent</td>\n    <td>@{if(\n  empty(string(body('Current_Version')?['MonthlyRent'])),\n  '',\n  formatNumber(\n    body('Current_Version')?['MonthlyRent'],\n    'C2', \n    'en-US'\n  )\n)}</td>\n  </tr>\n  <tr>\n    <td>DHA Portion</td>\n    <td>@{if(\n  empty(string(body('Current_Version')?['HAPPortion'])),\n  '',\n  formatNumber(\n    body('Current_Version')?['HAPPortion'],\n    'C2', 'en-US'\n  )\n)}</td>\n  </tr>\n  <tr>\n    <td>Teant Portion</td>\n    <td>@{if(\r\n  empty(string(body('Current_Version')?['TenantPortion'])),\r\n  '',\r\n  formatNumber(\r\n    body('Current_Version')?['TenantPortion'],\r\n    'C2', 'en-US'\r\n  )\r\n)}</td>\n  </tr>\n  <tr>\n    <td>Application Fee</td>\n    <td>@{if(\n  empty(string(body('Current_Version')?['ApplicationFee'])),\n  '',\n  formatNumber(\n    body('Current_Version')?['ApplicationFee'],\n    'C2', 'en-US'\n  )\n)}</td>\n  </tr>\n  <tr>\n    <td>Administrative Fee</td>\n    <td>@{if(\n  empty(string(body('Current_Version')?['AdministrativeFee'])),\n  '',\n  formatNumber(\n    body('Current_Version')?['AdministrativeFee'],\n    'C2', 'en-US'\n  )\n)}</td>\n  </tr>\n  <tr>\n    <td>Risk Fee</td>\n    <td>@{if(\n  empty(string(body('Current_Version')?['RiskFee'])),\n  '',\n  formatNumber(\n    body('Current_Version')?['RiskFee'],\n    'C2', 'en-US'\n  )\n)}</td>\n  </tr>\n  <tr>\n    <td>Landlord Incentive Fee</td>\n    <td>@{if(\n  empty(string(body('Current_Version')?['LandlordIncentiveFee'])),\n  '',\n  formatNumber(\n    body('Current_Version')?['LandlordIncentiveFee'],\n    'C2', 'en-US'\n  )\n)}</td>\n  </tr>\n  <tr>\n    <td>Security Deposit</td>\n    <td>@{if(\n  empty(string(body('Current_Version')?['SecurityDeposit'])),\n  '',\n  formatNumber(\n    body('Current_Version')?['SecurityDeposit'],\n    'C2', 'en-US'\n  )\n)}</td>\n  </tr>\n  <tr>\n    <td>DHA Amendment 1 Date</td>\n    <td>@{body('Current_Version')?['HAPAmendment1Date']}</td>\n  </tr>\n  <tr>\n    <td>DHA Amendment 2 Date</td>\n    <td>@{body('Current_Version')?['HAPAmendment2Date']}</td>\n  </tr>\n  <tr>\n    <td>DHA Amendment 3 Date</td>\n    <td>@{body('Current_Version')?['HAPAmendment3Date']}</td>\n  </tr>\n  <tr>\n    <td>DHA Amendment 1 Portion</td>\n    <td>@{if(\r\n  empty(string(body('Current_Version')?['HAPAmendment1Portion'])),\r\n  '',\r\n  formatNumber(\r\n    body('Current_Version')?['HAPAmendment1Portion'],\r\n    'C2', 'en-US'\r\n  )\r\n)}</td>\n  </tr>\n  <tr>\n    <td>DHA Amendment 2 Portion</td>\n    <td>@{if(\n  empty(string(body('Current_Version')?['HAPAmendment2Portion'])),\n  '',\n  formatNumber(\n    body('Current_Version')?['HAPAmendment2Portion'],\n    'C2', 'en-US'\n  )\n)}</td>\n  </tr>\n  <tr>\n    <td>DHA Amendment 3 Portion</td>\n    <td>@{if(\n  empty(string(body('Current_Version')?['HAPAmendment3Portion'])),\n  '',\n  formatNumber(\n    body('Current_Version')?['HAPAmendment3Portion'],\n    'C2', 'en-US'\n  )\n)}</td>\n  </tr>\n</table>"
+                    },
+                    "Send_email_about_new_resident": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "emailMessage/MailboxAddress": "@parameters('UPM-DHA Notification (From) (clr_UPMDHANotificationFrom)')",
+                          "emailMessage/To": "@parameters('UPM-DHA Notification (DIF Reminder | To) (clr_UPMDHANotificationDIFReminderTo)')",
+                          "emailMessage/Subject": "@{parameters('UPM-DHA Solution Label (Project Name) (clr_UPMDHASolutionLabelProjectName)')}: @{items('MOD_Tenants')?['TenantName/Value']}'s record was added in DIF",
+                          "emailMessage/Body": "        <style>\n            table {\n                border-collapse: collapse;\n                font-family: \"Segoe UI\", Arial, sans-serif;\n                font-size: 13px;\n                color: #333;\n                margin-top: 30px;\n            }\n\n            th {\n                background: #f3f5f7;\n                color: #444;\n                font-weight: 600;\n                text-align: left;\n                padding: 8px 10px;\n                border: 1px solid #d8dde3;\n            }\n\n            td {\n                padding: 8px 10px;\n                border: 1px solid #e3e7eb;\n                vertical-align: top;\n            }\n\n            tr:nth-child(even) {\n                background: #fafbfc;\n            }\n\n            /* Highlight updated values */\n            .changed {\n                display: inline-block;\n                padding: 2px 6px;\n                background: #e8f2ff;\n                border: 1px solid #b7d3f5;\n                border-radius: 3px;\n                color: #0b5cab;\n                font-weight: 600;\n            }\n\n            .changed2 {\n                display: inline-block;\n                padding: 2px 6px;\n                background: #e8f2ff;\n                border: 1px solid #b7d3f5;\n                border-radius: 3px;\n                color: #0bab20;\n                font-weight: 600;\n            }\n        </style>\n<p class=\"editor-paragraph\">Dear @{join(\n  variables('aryRecipient_Names'),\n  '/'\n)},</p><p class=\"editor-paragraph\">This email is to notify you that <b>@{items('MOD_Tenants')?['TenantName/Value']}</b> was recently added in the <a href=\"@{parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')}\" class=\"editor-link\">DHA Intake Form</a>&nbsp;(DIF); refer to the table below for more details.</p><p class=\"editor-paragraph\">@{outputs('New_Item_Summary')}@{parameters('UPM-DHA Notification (Byline) (clr_UPMDHANotificationByline)')}</p>",
+                          "emailMessage/Cc": "@parameters('UPM-DHA Notification (DIF Changes | Cc) (clr_UPMDHANotificationDIFChangesCc)')",
+                          "emailMessage/Importance": "Normal"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                          "operationId": "SharedMailboxSendEmailV2",
+                          "connectionName": "shared_office365-1"
+                        }
+                      },
+                      "runAfter": {
+                        "New_Item_Summary": [
+                          "Succeeded"
+                        ]
+                      }
+                    }
+                  },
+                  "else": {
+                    "actions": {
+                      "Changes_Valid": {
+                        "type": "If",
+                        "expression": {
+                          "and": [
+                            {
+                              "not": {
+                                "equals": [
+                                  "@if(\r\n  not(empty(outputs('Previous_Version'))),\r\n  removeProperty(\r\n    outputs('Previous_Version'),\r\n    'Modified'\r\n  ),\r\n  json('{}')\r\n)",
+                                  "@removeProperty(\r\n  body('Current_Version'),\r\n  'Modified'\r\n)"
+                                ]
+                              }
+                            }
+                          ]
+                        },
+                        "actions": {
+                          "Changes_Summary": {
+                            "type": "Compose",
+                            "inputs": "<table>\n  <tr>\n    <th>Tenant Details</th>\n    <th>Current Version</th>\n    <th>Previous Version</th>\n  </tr>\n  <tr>\n    <td>Unit / Property</td>\n    <td><span class=\"@{if(\r\n  not(equals(body('Current_Version')?['Unit'], outputs('Previous_Version')?['Unit'])),\r\n  'changed',\r\n  ''\r\n)}\">@{body('Current_Version')?['Unit']}</span></td>\n    <td>@{outputs('Previous_Version')?['Unit']}</td>\n  </tr>\n  <tr>\n    <td>Lease Start</td>\n    <td><span class=\"@{if(\r\n  and(\r\n    not(empty(string(body('Current_Version')?['LeaseStart']))),\r\n    not(empty(string(outputs('Previous_Version')?['LeaseStart'])))\r\n  ),\r\n  if(\r\n    not(\r\n      equals(\r\n        formatDateTime(\r\n          body('Current_Version')?['LeaseStart'],\r\n          'yyyy-MM-dd'\r\n        ), \r\n        formatDateTime(\r\n          outputs('Previous_Version')?['LeaseStart'],\r\n          'yyyy-MM-dd'\r\n        )\r\n      )\r\n    ),\r\n    'changed',\r\n    ''\r\n  ),\r\n  if(\r\n    and(\r\n      empty(string(body('Current_Version')?['LeaseStart'])),\r\n      empty(string(outputs('Previous_Version')?['LeaseStart']))\r\n    ),\r\n    '',\r\n    'changed'\r\n  )\r\n)}\">@{body('Current_Version')?['LeaseStart']}</span></td>\n    <td>@{outputs('Previous_Version')?['LeaseStart']}</td>\n  </tr>\n  <tr>\n    <td>Lease End</td>\n    <td><span class=\"@{if(\r\n  and(\r\n    not(empty(string(body('Current_Version')?['LeaseEnd']))),\r\n    not(empty(string(outputs('Previous_Version')?['LeaseEnd'])))\r\n  ),\r\n  if(\r\n    not(\r\n      equals(\r\n        formatDateTime(\r\n          body('Current_Version')?['LeaseEnd'],\r\n          'yyyy-MM-dd'\r\n        ), \r\n        formatDateTime(\r\n          outputs('Previous_Version')?['LeaseEnd'],\r\n          'yyyy-MM-dd'\r\n        )\r\n      )\r\n    ),\r\n    'changed',\r\n    ''\r\n  ),\r\n  if(\r\n    and(\r\n      empty(string(body('Current_Version')?['LeaseEnd'])),\r\n      empty(string(outputs('Previous_Version')?['LeaseEnd']))\r\n    ),\r\n    '',\r\n    'changed'\r\n  )\r\n)}\">@{body('Current_Version')?['LeaseEnd']}</span></td>\n    <td>@{outputs('Previous_Version')?['LeaseEnd']}</td>\n  </tr>\n  <tr>\n    <td>Move-In</td>\n    <td><span class=\"@{if(\r\n  and(\r\n    not(empty(string(body('Current_Version')?['MoveIn']))),\r\n    not(empty(string(outputs('Previous_Version')?['MoveIn'])))\r\n  ),\r\n  if(\r\n    not(\r\n      equals(\r\n        formatDateTime(\r\n          body('Current_Version')?['MoveIn'],\r\n          'yyyy-MM-dd'\r\n        ), \r\n        formatDateTime(\r\n          outputs('Previous_Version')?['MoveIn'],\r\n          'yyyy-MM-dd'\r\n        )\r\n      )\r\n    ),\r\n    'changed',\r\n    ''\r\n  ),\r\n  if(\r\n    and(\r\n      empty(string(body('Current_Version')?['MoveIn'])),\r\n      empty(string(outputs('Previous_Version')?['MoveIn']))\r\n    ),\r\n    '',\r\n    'changed'\r\n  )\r\n)}\">@{body('Current_Version')?['MoveIn']}</span></td>\n    <td>@{outputs('Previous_Version')?['MoveIn']}</td>\n  </tr>\n  <tr>\n    <td>Residence Status</td>\n    <td><span class=\"@{if(\r\n  not(equals(body('Current_Version')?['ResidenceStatus'], outputs('Previous_Version')?['ResidenceStatus'])),\r\n  'changed',\r\n  ''\r\n)}\">@{body('Current_Version')?['ResidenceStatus']}</span></td>\n    <td>@{outputs('Previous_Version')?['ResidenceStatus']}</td>\n  </tr>\n  <tr>\n    <td>DHA Status</td>\n    <td><span class=\"@{if(\n  not(equals(body('Current_Version')?['DHAStatus'], outputs('Previous_Version')?['DHAStatus'])),\n  'changed',\n  ''\n)}\">@{body('Current_Version')?['DHAStatus']}</span></td>\n    <td>@{outputs('Previous_Version')?['DHAStatus']}</td>\n  </tr>\n  <tr>\n    <td>Caseworker Name</td>\n    <td><span class=\"@{if(\r\n  not(equals(body('Current_Version')?['CaseworkerName'], outputs('Previous_Version')?['CaseworkerName'])),\r\n  'changed',\r\n  ''\r\n)}\">@{body('Current_Version')?['CaseworkerName']}</span></td>\n    <td><span class=\"@{if(\r\n  not(equals(body('Current_Version')?['CaseworkerName'], outputs('Previous_Version')?['CaseworkerName'])),\r\n  'changed2',\r\n  ''\r\n)}\"@{outputs('Previous_Version')?['CaseworkerName']}</span></td>\n  </tr>\n  <tr>\n    <td>Caseworker Contact</td>\n    <td><span class=\"@{if(\n  not(equals(body('Current_Version')?['CaseworkerContact'], outputs('Previous_Version')?['CaseworkerContact'])),\n  'changed',\n  ''\n)}\">@{body('Current_Version')?['CaseworkerContact']}</span></td>\n    <td><span class=\"@{if(\r\n  not(equals(body('Current_Version')?['CaseworkerContact'], outputs('Previous_Version')?['CaseworkerContact'])),\r\n  'changed2',\r\n  ''\r\n)}\">@{outputs('Previous_Version')?['CaseworkerContact']}</span></td>\n  </tr>\n  <tr>\n    <td>DHA Contract Start</td>\n    <td><span class=\"@{if(\r\n  and(\r\n    not(empty(string(body('Current_Version')?['HAPContractStart']))),\r\n    not(empty(string(outputs('Previous_Version')?['HAPContractStart'])))\r\n  ),\r\n  if(\r\n    not(\r\n      equals(\r\n        formatDateTime(\r\n          body('Current_Version')?['HAPContractStart'],\r\n          'yyyy-MM-dd'\r\n        ), \r\n        formatDateTime(\r\n          outputs('Previous_Version')?['HAPContractStart'],\r\n          'yyyy-MM-dd'\r\n        )\r\n      )\r\n    ),\r\n    'changed',\r\n    ''\r\n  ),\r\n  if(\r\n    and(\r\n      empty(string(body('Current_Version')?['HAPContractStart'])),\r\n      empty(string(outputs('Previous_Version')?['HAPContractStart']))\r\n    ),\r\n    '',\r\n    'changed'\r\n  )\r\n)}\">@{body('Current_Version')?['HAPContractStart']}</span></td>\n    <td><span class=\"@{if(\r\n  and(\r\n    not(empty(string(body('Current_Version')?['HAPContractStart']))),\r\n    not(empty(string(outputs('Previous_Version')?['HAPContractStart'])))\r\n  ),\r\n  if(\r\n    not(\r\n      equals(\r\n        formatDateTime(\r\n          body('Current_Version')?['HAPContractStart'],\r\n          'yyyy-MM-dd'\r\n        ), \r\n        formatDateTime(\r\n          outputs('Previous_Version')?['HAPContractStart'],\r\n          'yyyy-MM-dd'\r\n        )\r\n      )\r\n    ),\r\n    'changed2',\r\n    ''\r\n  ),\r\n  if(\r\n    and(\r\n      empty(string(body('Current_Version')?['HAPContractStart'])),\r\n      empty(string(outputs('Previous_Version')?['HAPContractStart']))\r\n    ),\r\n    '',\r\n    'changed2'\r\n  )\r\n)}\">@{if(\r\n  empty(string(outputs('Previous_Version')?['HAPContractStart'])),\r\n  '',\r\n  formatDateTime(\r\n    outputs('Previous_Version')?['HAPContractStart'],\r\n    'yyyy-MM-dd'\r\n  )\r\n)}</span></td>\n  </tr>\n  <tr>\n    <td>DHA Contract End</td>\n    <td><span class=\"@{if(\r\n  and(\r\n    not(empty(string(body('Current_Version')?['HAPContractEnd']))),\r\n    not(empty(string(outputs('Previous_Version')?['HAPContractEnd'])))\r\n  ),\r\n  if(\r\n    not(\r\n      equals(\r\n        formatDateTime(\r\n          body('Current_Version')?['HAPContractEnd'],\r\n          'yyyy-MM-dd'\r\n        ), \r\n        formatDateTime(\r\n          outputs('Previous_Version')?['HAPContractEnd'],\r\n          'yyyy-MM-dd'\r\n        )\r\n      )\r\n    ),\r\n    'changed',\r\n    ''\r\n  ),\r\n  if(\r\n    and(\r\n      empty(string(body('Current_Version')?['HAPContractEnd'])),\r\n      empty(string(outputs('Previous_Version')?['HAPContractEnd']))\r\n    ),\r\n    '',\r\n    'changed'\r\n  )\r\n)}\">@{body('Current_Version')?['HAPContractEnd']}</span></td>\n    <td><span class=\"@{if(\r\n  and(\r\n    not(empty(string(body('Current_Version')?['HAPContractEnd']))),\r\n    not(empty(string(outputs('Previous_Version')?['HAPContractEnd'])))\r\n  ),\r\n  if(\r\n    not(\r\n      equals(\r\n        formatDateTime(\r\n          body('Current_Version')?['HAPContractEnd'],\r\n          'yyyy-MM-dd'\r\n        ), \r\n        formatDateTime(\r\n          outputs('Previous_Version')?['HAPContractEnd'],\r\n          'yyyy-MM-dd'\r\n        )\r\n      )\r\n    ),\r\n    'changed2',\r\n    ''\r\n  ),\r\n  if(\r\n    and(\r\n      empty(string(body('Current_Version')?['HAPContractEnd'])),\r\n      empty(string(outputs('Previous_Version')?['HAPContractEnd']))\r\n    ),\r\n    '',\r\n    'changed2'\r\n  )\r\n)}\">@{if(\r\n  empty(string(outputs('Previous_Version')?['HAPContractEnd'])),\r\n  '',\r\n  formatDateTime(\r\n    outputs('Previous_Version')?['HAPContractEnd'],\r\n    'yyyy-MM-dd'\r\n  )\r\n)}</span></td>\n  </tr>\n  <tr>\n    <td>Monthly Rent</td>\n    <td><span class=\"@{if(\n  not(equals(body('Current_Version')?['MonthlyRent'], outputs('Previous_Version')?['MonthlyRent'])),\n  'changed',\n  ''\n)}\">@{if(\n  empty(string(body('Current_Version')?['MonthlyRent'])),\n  '',\n  formatNumber(\n    body('Current_Version')?['MonthlyRent'],\n    'C2', \n    'en-US'\n  )\n)}</span></td>\n    <td><span class=\"@{if(\r\n  not(equals(body('Current_Version')?['MonthlyRent'], outputs('Previous_Version')?['MonthlyRent'])),\r\n  'changed2',\r\n  ''\r\n)}\">@{if(\n  empty(string(outputs('Previous_Version')?['MonthlyRent'])),\n  '',\n  formatNumber(\n    outputs('Previous_Version')?['MonthlyRent'],\n    'C2', 'en-US'\n  )\n)}</span></td>\n  </tr>\n  <tr>\n    <td>DHA Portion</td>\n    <td><span class=\"@{if(\n  not(equals(body('Current_Version')?['HAPPortion'], outputs('Previous_Version')?['HAPPortion'])),\n  'changed',\n  ''\n)}\">@{if(\n  empty(string(body('Current_Version')?['HAPPortion'])),\n  '',\n  formatNumber(\n    body('Current_Version')?['HAPPortion'],\n    'C2', 'en-US'\n  )\n)}</span></td>\n    <td><span class=\"@{if(\r\n  not(equals(body('Current_Version')?['HAPPortion'], outputs('Previous_Version')?['HAPPortion'])),\r\n  'changed2',\r\n  ''\r\n)}\">@{if(\n  empty(string(outputs('Previous_Version')?['HAPPortion'])),\n  '',\n  formatNumber(\n    outputs('Previous_Version')?['HAPPortion'],\n    'C2', 'en-US'\n  )\n)}</span></td>\n  </tr>\n  <tr>\n    <td>Teant Portion</td>\n    <td><span class=\"@{if(\r\n  not(equals(body('Current_Version')?['TenantPortion'], outputs('Previous_Version')?['TenantPortion'])),\r\n  'changed',\r\n  ''\r\n)}\">@{if(\r\n  empty(string(body('Current_Version')?['TenantPortion'])),\r\n  '',\r\n  formatNumber(\r\n    body('Current_Version')?['TenantPortion'],\r\n    'C2', 'en-US'\r\n  )\r\n)}</span></td>\n    <td><span class=\"@{if(\r\n  not(equals(body('Current_Version')?['TenantPortion'], outputs('Previous_Version')?['TenantPortion'])),\r\n  'changed2',\r\n  ''\r\n)}\">@{if(\r\n  empty(string(outputs('Previous_Version')?['TenantPortion'])),\r\n  '',\r\n  formatNumber(\r\n    outputs('Previous_Version')?['TenantPortion'],\r\n    'C2', 'en-US'\r\n  )\r\n)}</span></td>\n  </tr>\n  <tr>\n    <td>Application Fee</td>\n    <td><span class=\"@{if(\n  not(equals(body('Current_Version')?['ApplicationFee'], outputs('Previous_Version')?['ApplicationFee'])),\n  'changed',\n  ''\n)}\">@{if(\n  empty(string(body('Current_Version')?['ApplicationFee'])),\n  '',\n  formatNumber(\n    body('Current_Version')?['ApplicationFee'],\n    'C2', 'en-US'\n  )\n)}</span></td>\n    <td><span class=\"@{if(\r\n  not(equals(body('Current_Version')?['ApplicationFee'], outputs('Previous_Version')?['ApplicationFee'])),\r\n  'changed2',\r\n  ''\r\n)}\">@{if(\n  empty(string(outputs('Previous_Version')?['ApplicationFee'])),\n  '',\n  formatNumber(\n    outputs('Previous_Version')?['ApplicationFee'],\n    'C2', 'en-US'\n  )\n)}</span></td>\n  </tr>\n  <tr>\n    <td>Administrative Fee</td>\n    <td><span class=\"@{if(\n  not(equals(body('Current_Version')?['AdministrativeFee'], outputs('Previous_Version')?['AdministrativeFee'])),\n  'changed',\n  ''\n)}\">@{if(\n  empty(string(body('Current_Version')?['AdministrativeFee'])),\n  '',\n  formatNumber(\n    body('Current_Version')?['AdministrativeFee'],\n    'C2', 'en-US'\n  )\n)}</span></td>\n    <td><span class=\"@{if(\r\n  not(equals(body('Current_Version')?['AdministrativeFee'], outputs('Previous_Version')?['AdministrativeFee'])),\r\n  'changed2',\r\n  ''\r\n)}\">@{if(\n  empty(string(outputs('Previous_Version')?['AdministrativeFee'])),\n  '',\n  formatNumber(\n    outputs('Previous_Version')?['AdministrativeFee'],\n    'C2', 'en-US'\n  )\n)}</span></td>\n  </tr>\n  <tr>\n    <td>Risk Fee</td>\n    <td><span class=\"@{if(\n  not(equals(body('Current_Version')?['RiskFee'], outputs('Previous_Version')?['RiskFee'])),\n  'changed',\n  ''\n)}\">@{if(\n  empty(string(body('Current_Version')?['RiskFee'])),\n  '',\n  formatNumber(\n    body('Current_Version')?['RiskFee'],\n    'C2', 'en-US'\n  )\n)}</span></td>\n    <td><span class=\"@{if(\r\n  not(equals(body('Current_Version')?['RiskFee'], outputs('Previous_Version')?['RiskFee'])),\r\n  'changed2',\r\n  ''\r\n)}\">@{if(\n  empty(string(outputs('Previous_Version')?['RiskFee'])),\n  '',\n  formatNumber(\n    outputs('Previous_Version')?['RiskFee'],\n    'C2', 'en-US'\n  )\n)}</span></td>\n  </tr>\n  <tr>\n    <td>Landlord Incentive Fee</td>\n    <td><span class=\"@{if(\n  not(equals(body('Current_Version')?['LandlordIncentiveFee'], outputs('Previous_Version')?['LandlordIncentiveFee'])),\n  'changed',\n  ''\n)}\">@{if(\n  empty(string(body('Current_Version')?['LandlordIncentiveFee'])),\n  '',\n  formatNumber(\n    body('Current_Version')?['LandlordIncentiveFee'],\n    'C2', 'en-US'\n  )\n)}</span></td>\n    <td><span class=\"@{if(\r\n  not(equals(body('Current_Version')?['LandlordIncentiveFee'], outputs('Previous_Version')?['LandlordIncentiveFee'])),\r\n  'changed2',\r\n  ''\r\n)}\">@{if(\n  empty(string(outputs('Previous_Version')?['LandlordIncentiveFee'])),\n  '',\n  formatNumber(\n    outputs('Previous_Version')?['LandlordIncentiveFee'],\n    'C2', 'en-US'\n  )\n)}</span></td>\n  </tr>\n  <tr>\n    <td>Security Deposit</td>\n    <td><span class=\"@{if(\n  not(equals(body('Current_Version')?['SecurityDeposit'], outputs('Previous_Version')?['SecurityDeposit'])),\n  'changed',\n  ''\n)}\">@{if(\n  empty(string(body('Current_Version')?['SecurityDeposit'])),\n  '',\n  formatNumber(\n    body('Current_Version')?['SecurityDeposit'],\n    'C2', 'en-US'\n  )\n)}</span></td>\n    <td><span class=\"@{if(\r\n  not(equals(body('Current_Version')?['SecurityDeposit'], outputs('Previous_Version')?['SecurityDeposit'])),\r\n  'changed2',\r\n  ''\r\n)}\">@{if(\n  empty(string(outputs('Previous_Version')?['SecurityDeposit'])),\n  '',\n  formatNumber(\n    outputs('Previous_Version')?['SecurityDeposit'],\n    'C2', 'en-US'\n  )\n)}</span></td>\n  </tr>\n  <tr>\n    <td>DHA Amendment 1 Date</td>\n    <td><span class=\"@{if(\r\n  and(\r\n    not(empty(string(body('Current_Version')?['HAPAmendment1Date']))),\r\n    not(empty(string(outputs('Previous_Version')?['HAPAmendment1Date'])))\r\n  ),\r\n  if(\r\n    not(\r\n      equals(\r\n        formatDateTime(\r\n          body('Current_Version')?['HAPAmendment1Date'],\r\n          'yyyy-MM-dd'\r\n        ), \r\n        formatDateTime(\r\n          outputs('Previous_Version')?['HAPAmendment1Date'],\r\n          'yyyy-MM-dd'\r\n        )\r\n      )\r\n    ),\r\n    'changed',\r\n    ''\r\n  ),\r\n  if(\r\n    and(\r\n      empty(string(body('Current_Version')?['HAPAmendment1Date'])),\r\n      empty(string(outputs('Previous_Version')?['HAPAmendment1Date']))\r\n    ),\r\n    '',\r\n    'changed'\r\n  )\r\n)}\">@{body('Current_Version')?['HAPAmendment1Date']}</span></td>\n    <td><span class=\"@{if(\r\n  and(\r\n    not(empty(string(body('Current_Version')?['HAPAmendment1Date']))),\r\n    not(empty(string(outputs('Previous_Version')?['HAPAmendment1Date'])))\r\n  ),\r\n  if(\r\n    not(\r\n      equals(\r\n        formatDateTime(\r\n          body('Current_Version')?['HAPAmendment1Date'],\r\n          'yyyy-MM-dd'\r\n        ), \r\n        formatDateTime(\r\n          outputs('Previous_Version')?['HAPAmendment1Date'],\r\n          'yyyy-MM-dd'\r\n        )\r\n      )\r\n    ),\r\n    'changed2',\r\n    ''\r\n  ),\r\n  if(\r\n    and(\r\n      empty(string(body('Current_Version')?['HAPAmendment1Date'])),\r\n      empty(string(outputs('Previous_Version')?['HAPAmendment1Date']))\r\n    ),\r\n    '',\r\n    'changed2'\r\n  )\r\n)}\">@{if(\r\n  empty(string(outputs('Previous_Version')?['HAPAmendment1Date'])),\r\n  '',\r\n  formatDateTime(\r\n    outputs('Previous_Version')?['HAPAmendment1Date'],\r\n    'yyyy-MM-dd'\r\n  )\r\n)}</span></td>\n  </tr>\n  <tr>\n    <td>DHA Amendment 2 Date</td>\n    <td><span class=\"@{if(\r\n  and(\r\n    not(empty(string(body('Current_Version')?['HAPAmendment2Date']))),\r\n    not(empty(string(outputs('Previous_Version')?['HAPAmendment2Date'])))\r\n  ),\r\n  if(\r\n    not(\r\n      equals(\r\n        formatDateTime(\r\n          body('Current_Version')?['HAPAmendment2Date'],\r\n          'yyyy-MM-dd'\r\n        ), \r\n        formatDateTime(\r\n          outputs('Previous_Version')?['HAPAmendment2Date'],\r\n          'yyyy-MM-dd'\r\n        )\r\n      )\r\n    ),\r\n    'changed',\r\n    ''\r\n  ),\r\n  if(\r\n    and(\r\n      empty(string(body('Current_Version')?['HAPAmendment2Date'])),\r\n      empty(string(outputs('Previous_Version')?['HAPAmendment2Date']))\r\n    ),\r\n    '',\r\n    'changed'\r\n  )\r\n)}\">@{body('Current_Version')?['HAPAmendment2Date']}</span></td>\n    <td><span class=\"@{if(\r\n  and(\r\n    not(empty(string(body('Current_Version')?['HAPAmendment2Date']))),\r\n    not(empty(string(outputs('Previous_Version')?['HAPAmendment2Date'])))\r\n  ),\r\n  if(\r\n    not(\r\n      equals(\r\n        formatDateTime(\r\n          body('Current_Version')?['HAPAmendment2Date'],\r\n          'yyyy-MM-dd'\r\n        ), \r\n        formatDateTime(\r\n          outputs('Previous_Version')?['HAPAmendment2Date'],\r\n          'yyyy-MM-dd'\r\n        )\r\n      )\r\n    ),\r\n    'changed2',\r\n    ''\r\n  ),\r\n  if(\r\n    and(\r\n      empty(string(body('Current_Version')?['HAPAmendment2Date'])),\r\n      empty(string(outputs('Previous_Version')?['HAPAmendment2Date']))\r\n    ),\r\n    '',\r\n    'changed2'\r\n  )\r\n)}\">@{if(\r\n  empty(string(outputs('Previous_Version')?['HAPAmendment2Date'])),\r\n  '',\r\n  formatDateTime(\r\n    outputs('Previous_Version')?['HAPAmendment2Date'],\r\n    'yyyy-MM-dd'\r\n  )\r\n)}</span></td>\n  </tr>\n  <tr>\n    <td>DHA Amendment 3 Date</td>\n    <td><span class=\"@{if(\r\n  and(\r\n    not(empty(string(body('Current_Version')?['HAPAmendment3Date']))),\r\n    not(empty(string(outputs('Previous_Version')?['HAPAmendment3Date'])))\r\n  ),\r\n  if(\r\n    not(\r\n      equals(\r\n        formatDateTime(\r\n          body('Current_Version')?['HAPAmendment3Date'],\r\n          'yyyy-MM-dd'\r\n        ), \r\n        formatDateTime(\r\n          outputs('Previous_Version')?['HAPAmendment3Date'],\r\n          'yyyy-MM-dd'\r\n        )\r\n      )\r\n    ),\r\n    'changed',\r\n    ''\r\n  ),\r\n  if(\r\n    and(\r\n      empty(string(body('Current_Version')?['HAPAmendment3Date'])),\r\n      empty(string(outputs('Previous_Version')?['HAPAmendment3Date']))\r\n    ),\r\n    '',\r\n    'changed'\r\n  )\r\n)}\">@{body('Current_Version')?['HAPAmendment3Date']}</span></td>\n    <td><span class=\"@{if(\r\n  and(\r\n    not(empty(string(body('Current_Version')?['HAPAmendment3Date']))),\r\n    not(empty(string(outputs('Previous_Version')?['HAPAmendment3Date'])))\r\n  ),\r\n  if(\r\n    not(\r\n      equals(\r\n        formatDateTime(\r\n          body('Current_Version')?['HAPAmendment3Date'],\r\n          'yyyy-MM-dd'\r\n        ), \r\n        formatDateTime(\r\n          outputs('Previous_Version')?['HAPAmendment3Date'],\r\n          'yyyy-MM-dd'\r\n        )\r\n      )\r\n    ),\r\n    'changed2',\r\n    ''\r\n  ),\r\n  if(\r\n    and(\r\n      empty(string(body('Current_Version')?['HAPAmendment3Date'])),\r\n      empty(string(outputs('Previous_Version')?['HAPAmendment3Date']))\r\n    ),\r\n    '',\r\n    'changed2'\r\n  )\r\n)}\">@{if(\r\n  empty(string(outputs('Previous_Version')?['HAPAmendment3Date'])),\r\n  '',\r\n  formatDateTime(\r\n    outputs('Previous_Version')?['HAPAmendment3Date'],\r\n    'yyyy-MM-dd'\r\n  )\r\n)}</span></td>\n  </tr>\n  <tr>\n    <td>DHA Amendment 1 Portion</td>\n    <td><span class=\"@{if(\r\n  not(equals(body('Current_Version')?['HAPAmendment1Portion'], outputs('Previous_Version')?['HAPAmendment1Portion'])),\r\n  'changed',\r\n  ''\r\n)}\">@{if(\r\n  empty(string(body('Current_Version')?['HAPAmendment1Portion'])),\r\n  '',\r\n  formatNumber(\r\n    body('Current_Version')?['HAPAmendment1Portion'],\r\n    'C2', 'en-US'\r\n  )\r\n)}</span></td>\n    <td><span class=\"@{if(\r\n  not(equals(body('Current_Version')?['HAPAmendment1Portion'], outputs('Previous_Version')?['HAPAmendment1Portion'])),\r\n  'changed2',\r\n  ''\r\n)}\">@{if(\r\n  empty(string(outputs('Previous_Version')?['HAPAmendment1Portion'])),\r\n  '',\r\n  formatNumber(\r\n    outputs('Previous_Version')?['HAPAmendment1Portion'],\r\n    'C2', 'en-US'\r\n  )\r\n)}</span></td>\n  </tr>\n  <tr>\n    <td>DHA Amendment 2 Portion</td>\n    <td><span class=\"@{if(\r\n  not(equals(body('Current_Version')?['HAPAmendment2Portion'], outputs('Previous_Version')?['HAPAmendment2Portion'])),\r\n  'changed',\r\n  ''\r\n)}\">@{if(\n  empty(string(body('Current_Version')?['HAPAmendment2Portion'])),\n  '',\n  formatNumber(\n    body('Current_Version')?['HAPAmendment2Portion'],\n    'C2', 'en-US'\n  )\n)}</span></td>\n    <td><span class=\"@{if(\r\n  not(equals(body('Current_Version')?['HAPAmendment2Portion'], outputs('Previous_Version')?['HAPAmendment2Portion'])),\r\n  'changed2',\r\n  ''\r\n)}\">@{if(\r\n  empty(string(outputs('Previous_Version')?['HAPAmendment2Portion'])),\r\n  '',\r\n  formatNumber(\r\n    outputs('Previous_Version')?['HAPAmendment2Portion'],\r\n    'C2', 'en-US'\r\n  )\r\n)}</span></td>\n  </tr>\n  <tr>\n    <td>DHA Amendment 3 Portion</td>\n    <td><span class=\"@{if(\r\n  not(equals(body('Current_Version')?['HAPAmendment3Portion'], outputs('Previous_Version')?['HAPAmendment3Portion'])),\r\n  'changed',\r\n  ''\r\n)}\">@{if(\n  empty(string(body('Current_Version')?['HAPAmendment3Portion'])),\n  '',\n  formatNumber(\n    body('Current_Version')?['HAPAmendment3Portion'],\n    'C2', 'en-US'\n  )\n)}</span></td>\n    <td><span class=\"@{if(\r\n  not(equals(body('Current_Version')?['HAPAmendment3Portion'], outputs('Previous_Version')?['HAPAmendment3Portion'])),\r\n  'changed2',\r\n  ''\r\n)}\">@{if(\r\n  empty(string(outputs('Previous_Version')?['HAPAmendment3Portion'])),\r\n  '',\r\n  formatNumber(\r\n    outputs('Previous_Version')?['HAPAmendment3Portion'],\r\n    'C2', 'en-US'\r\n  )\r\n)}</span></td>\n  </tr>\n</table>"
+                          },
+                          "Send_email_about_changes_summary": {
+                            "type": "OpenApiConnection",
+                            "inputs": {
+                              "parameters": {
+                                "emailMessage/MailboxAddress": "@parameters('UPM-DHA Notification (From) (clr_UPMDHANotificationFrom)')",
+                                "emailMessage/To": "@parameters('UPM-DHA Notification (DIF Reminder | To) (clr_UPMDHANotificationDIFReminderTo)')",
+                                "emailMessage/Subject": "@{parameters('UPM-DHA Solution Label (Project Name) (clr_UPMDHASolutionLabelProjectName)')}: @{items('MOD_Tenants')?['TenantName/Value']}'s record was updated in DIF",
+                                "emailMessage/Body": "        <style>\n            table {\n                border-collapse: collapse;\n                font-family: \"Segoe UI\", Arial, sans-serif;\n                font-size: 13px;\n                color: #333;\n                margin-top: 30px;\n            }\n\n            th {\n                background: #f3f5f7;\n                color: #444;\n                font-weight: 600;\n                text-align: left;\n                padding: 8px 10px;\n                border: 1px solid #d8dde3;\n            }\n\n            td {\n                padding: 8px 10px;\n                border: 1px solid #e3e7eb;\n                vertical-align: top;\n            }\n\n            tr:nth-child(even) {\n                background: #fafbfc;\n            }\n\n            /* Highlight updated values */\n            .changed {\n                display: inline-block;\n                padding: 2px 6px;\n                background: #e8f2ff;\n                border: 1px solid #b7d3f5;\n                border-radius: 3px;\n                color: #0b5cab;\n                font-weight: 600;\n            }\n\n        </style>\n    <p>Dear @{join(\n  variables('aryRecipient_Names'),\n  '/'\n)},</p>\n<p class=\"editor-paragraph\">This email is to notify you that the DHA details for <b>@{items('MOD_Tenants')?['TenantName/Value']}</b> were recently updated in the <a href=\"@{parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')}\" class=\"editor-link\">DHA Intake Form</a>&nbsp;(DIF); refer to <span class=\"changed\">highlighted</span> cells in the table below.</p><p class=\"editor-paragraph\">@{outputs('Changes_Summary')}@{parameters('UPM-DHA Notification (Byline) (clr_UPMDHANotificationByline)')}</p>",
+                                "emailMessage/Cc": "@parameters('UPM-DHA Notification (DIF Changes | Cc) (clr_UPMDHANotificationDIFChangesCc)')",
+                                "emailMessage/Importance": "Normal"
+                              },
+                              "host": {
+                                "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                                "operationId": "SharedMailboxSendEmailV2",
+                                "connectionName": "shared_office365-1"
+                              }
+                            },
+                            "runAfter": {
+                              "Changes_Summary": [
+                                "Succeeded"
+                              ]
+                            }
+                          }
+                        },
+                        "else": {
+                          "actions": {}
+                        }
+                      }
+                    }
+                  },
+                  "runAfter": {
+                    "Current_Version": [
+                      "Succeeded"
+                    ]
+                  }
+                }
+              },
+              "runAfter": {
+                "Get_Recipients": [
+                  "Succeeded"
+                ]
+              }
+            }
+          },
+          "else": {
+            "actions": {}
+          },
+          "runAfter": {
+            "Recently_mod_items": [
+              "Succeeded"
+            ]
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

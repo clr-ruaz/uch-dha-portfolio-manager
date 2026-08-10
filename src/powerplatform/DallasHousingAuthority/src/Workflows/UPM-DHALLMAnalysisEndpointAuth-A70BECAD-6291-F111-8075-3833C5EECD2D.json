@@ -1,0 +1,122 @@
+{
+  "properties": {
+    "connectionReferences": {},
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "manual": {
+          "type": "Request",
+          "kind": "Http",
+          "inputs": {
+            "triggerAuthenticationType": "Tenant",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "System Message": {
+                  "type": "string"
+                },
+                "User Message": {
+                  "type": "array"
+                },
+                "JSON Format": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "metadata": {
+            "operationMetadataId": "7ccea1f7-d0ab-4cc1-aafe-3be72b2c572c"
+          }
+        }
+      },
+      "actions": {
+        "POST_LLM_Analysis": {
+          "type": "Http",
+          "inputs": {
+            "uri": "@body('LLM_Analysis_URL')?['callback_url']",
+            "method": "POST",
+            "body": {
+              "System Message": "@triggerBody()?['System Message']",
+              "User Message": "@triggerBody()?['User Message']",
+              "JSON Format": "@triggerBody()?['JSON Format']"
+            }
+          },
+          "runAfter": {
+            "LLM_Analysis_URL": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "f2dfc5d8-7fee-4450-ba1c-0517b21c3e2f"
+          }
+        },
+        "LLM_Analysis_URL": {
+          "type": "Workflow",
+          "inputs": {
+            "host": {
+              "workflowReferenceName": "7d4722cf-b06f-f111-ab0d-7c1e525965e1"
+            },
+            "body": {
+              "text": "UPM-DHA LLM Analysis Endpoint"
+            }
+          },
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "aacd64e8-8eaa-41ef-9702-6cee1313472d"
+          }
+        },
+        "Response": {
+          "type": "Response",
+          "kind": "Http",
+          "inputs": {
+            "statusCode": 200,
+            "headers": {
+              "Response": ""
+            },
+            "body": {
+              "Status": "Success",
+              "Response": "@if(\n  triggerBody()?['JSON Format'],\n  json(body('POST_LLM_Analysis')?['Response']),\n  body('POST_LLM_Analysis')?['Response']\n)"
+            }
+          },
+          "runAfter": {
+            "POST_LLM_Analysis": [
+              "SUCCEEDED"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "a42c4660-9c07-4727-aab5-7256f78d2594"
+          }
+        },
+        "Fail": {
+          "type": "Response",
+          "kind": "Http",
+          "inputs": {
+            "statusCode": 200,
+            "body": {
+              "Status": "Failed",
+              "Response": "Error message here...."
+            }
+          },
+          "runAfter": {
+            "POST_LLM_Analysis": [
+              "Failed"
+            ]
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

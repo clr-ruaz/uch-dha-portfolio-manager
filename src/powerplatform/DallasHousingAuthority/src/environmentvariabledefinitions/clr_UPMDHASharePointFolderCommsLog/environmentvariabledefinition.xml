@@ -1,0 +1,11 @@
+<environmentvariabledefinition schemaname="clr_UPMDHASharePointFolderCommsLog">
+  <defaultvalue>CommsLog</defaultvalue>
+  <displayname default="UPM-DHA SharePoint Folder (Comms Log)">
+    <label description="UPM-DHA SharePoint Folder (Comms Log)" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.1</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

@@ -1,0 +1,481 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline-1": {
+        "api": {
+          "name": "shared_sharepointonline"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UPMDHASharePointConnection"
+        },
+        "runtimeSource": "embedded"
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)": {
+          "defaultValue": "https://upsidecapitalholdings.sharepoint.com/Automation/UPM-DHA/DEV",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointSite"
+          }
+        },
+        "UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)": {
+          "defaultValue": "26ac3f0d-5a5d-47cd-a6b8-1e99b9d34b87",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListIntakeForm"
+          }
+        },
+        "UPM-DHA SharePoint List (GPT Prompts) (clr_UPMDHASharePointListGPTPrompts)": {
+          "defaultValue": "add0956c-c84c-4e31-aeb8-5921666e7aaf",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListGPTPrompts"
+          }
+        }
+      },
+      "triggers": {
+        "When_an_item_is_created_or_modified": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+              "table": "@parameters('UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)')"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "GetOnUpdatedItems",
+              "connectionName": "shared_sharepointonline-1"
+            }
+          },
+          "recurrence": {
+            "interval": 1,
+            "frequency": "Minute"
+          },
+          "conditions": [
+            {
+              "expression": "@not(empty(triggerBody()?['DHANotes']))"
+            }
+          ],
+          "splitOn": "@triggerOutputs()?['body/value']",
+          "metadata": {
+            "operationMetadataId": "03e00b1d-bb6d-4c00-8d43-ed54c369f5b9"
+          }
+        }
+      },
+      "actions": {
+        "Get_changes_for_item": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+              "table": "@parameters('UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)')",
+              "id": "@triggerBody()?['ID']",
+              "since": "@triggerBody()?['{TriggerWindowStartToken}']",
+              "includeDrafts": false
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "GetItemChanges",
+              "connectionName": "shared_sharepointonline-1"
+            }
+          },
+          "runAfter": {}
+        },
+        "New_DHA_Notes": {
+          "type": "If",
+          "expression": {
+            "or": [
+              {
+                "equals": [
+                  "@triggerBody()?['{VersionNumber}']",
+                  "@string('1.0')"
+                ]
+              },
+              {
+                "equals": [
+                  "@outputs('Get_changes_for_item')?['body/ColumnHasChanged/DHANotes']",
+                  "@true"
+                ]
+              }
+            ]
+          },
+          "actions": {
+            "Get_System_Prompt": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                  "table": "@parameters('UPM-DHA SharePoint List (GPT Prompts) (clr_UPMDHASharePointListGPTPrompts)')",
+                  "id": 2
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "GetItem",
+                  "connectionName": "shared_sharepointonline-1"
+                }
+              }
+            },
+            "LLM_Analysis_URL": {
+              "type": "Workflow",
+              "inputs": {
+                "host": {
+                  "workflowReferenceName": "7d4722cf-b06f-f111-ab0d-7c1e525965e1"
+                },
+                "body": {
+                  "text": "UPM-DHA LLM Analysis Endpoint"
+                }
+              },
+              "runAfter": {
+                "Get_System_Prompt": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "POST_LLM_Analysis": {
+              "type": "Http",
+              "inputs": {
+                "uri": "@body('LLM_Analysis_URL')?['callback_url']",
+                "method": "POST",
+                "body": {
+                  "System Message": "@outputs('Get_System_Prompt')?['body/SystemPrompt']",
+                  "User Message": [
+                    {
+                      "type": "input_text",
+                      "text": "@triggerBody()?['DHANotes']"
+                    }
+                  ],
+                  "JSON Format": true
+                }
+              },
+              "runAfter": {
+                "LLM_Analysis_URL": [
+                  "Succeeded"
+                ]
+              },
+              "runtimeConfiguration": {
+                "contentTransfer": {
+                  "transferMode": "Chunked"
+                }
+              }
+            },
+            "Document_Details": {
+              "type": "ParseJson",
+              "inputs": {
+                "content": "@json(body('POST_LLM_Analysis')?['Response'])",
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "Organization": {
+                      "type": "string"
+                    },
+                    "Coordinator Name": {
+                      "type": "string"
+                    },
+                    "Coordinator Email": {
+                      "type": "string"
+                    },
+                    "Coordinator Phone": {
+                      "type": "string"
+                    },
+                    "Lease Start Date": {
+                      "type": "string"
+                    },
+                    "Lease End Date": {
+                      "type": "string"
+                    },
+                    "Monthly Rent": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "HAP Amount": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "Client Portion": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "Landlord Incentive": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "Application Fee": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "Administrative Fee": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "Risk Fee": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "Security Deposit": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "DHA Status": {
+                      "type": "string"
+                    },
+                    "Amendments": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "Amendment Effective Date": {
+                            "type": "string"
+                          },
+                          "HAP Amount": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "Monthly Rent": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "runAfter": {
+                "POST_LLM_Analysis": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "HAP_Payload": {
+              "type": "Query",
+              "inputs": {
+                "from": [
+                  {
+                    "Key": "CaseworkerName",
+                    "Value": "@if(\r\n  not(empty(string(body('Document_Details')?['Coordinator Name']))),\r\n  body('Document_Details')?['Coordinator Name'],\r\n  'exclude'\r\n)",
+                    "Type": "Text"
+                  },
+                  {
+                    "Key": "CaseworkerContact",
+                    "Value": "@if(\r\n  or(\r\n    not(empty(string(body('Document_Details')?['Coordinator Email']))),\r\n    not(empty(string(body('Document_Details')?['Coordinator Phone'])))\r\n  ),\r\n  concat(\r\n    body('Document_Details')?['Coordinator Email'],\r\n    if(\r\n      or(\r\n        empty(body('Document_Details')?['Coordinator Email']),\r\n        empty(body('Document_Details')?['Coordinator Phone'])\r\n      ),\r\n      '',\r\n      ' / '\r\n    ),\r\n    body('Document_Details')?['Coordinator Phone']\r\n  ),\r\n  'exclude'\r\n)",
+                    "Type": "Text"
+                  },
+                  {
+                    "Key": "HAPContractStart",
+                    "Value": "@if(\r\n  not(empty(string(body('Document_Details')?['Lease Start Date']))),\r\n  body('Document_Details')?['Lease Start Date'],\r\n  'exclude'\r\n)",
+                    "Type": "Text"
+                  },
+                  {
+                    "Key": "HAPContractEnd",
+                    "Value": "@if(\r\n  not(empty(string(body('Document_Details')?['Lease End Date']))),\r\n  body('Document_Details')?['Lease End Date'],\r\n  'exclude'\r\n)",
+                    "Type": "Text"
+                  },
+                  {
+                    "Key": "MonthlyRent",
+                    "Value": "@if(\r\n  not(empty(string(body('Document_Details')?['Monthly Rent']))),\r\n  body('Document_Details')?['Monthly Rent'],\r\n  'exclude'\r\n)",
+                    "Type": "Number"
+                  },
+                  {
+                    "Key": "HAPPortion",
+                    "Value": "@if(\r\n  not(empty(string(body('Document_Details')?['HAP Amount']))),\r\n  body('Document_Details')?['HAP Amount'],\r\n  if(\r\n    and(\r\n      not(empty(string(body('Document_Details')?['Monthly Rent']))),\r\n      not(empty(string(body('Document_Details')?['Client Portion'])))\r\n    ),\r\n    sub(\r\n      body('Document_Details')?['Monthly Rent'],\r\n      body('Document_Details')?['Client Portion']\r\n    ),\r\n    'exclude'\r\n  )\r\n)",
+                    "Type": "Number"
+                  },
+                  {
+                    "Key": "ApplicationFee",
+                    "Value": "@if(\r\n  not(empty(string(body('Document_Details')?['Application Fee']))),\r\n  body('Document_Details')?['Application Fee'],\r\n  'exclude'\r\n)",
+                    "Type": "Number"
+                  },
+                  {
+                    "Key": "AdministrativeFee",
+                    "Value": "@if(\r\n  not(empty(string(body('Document_Details')?['Administrative Fee']))),\r\n  body('Document_Details')?['Administrative Fee'],\r\n  'exclude'\r\n)",
+                    "Type": "Number"
+                  },
+                  {
+                    "Key": "RiskFee",
+                    "Value": "@if(\r\n  not(empty(string(body('Document_Details')?['Risk Fee']))),\r\n  body('Document_Details')?['Risk Fee'],\r\n  'exclude'\r\n)",
+                    "Type": "Number"
+                  },
+                  {
+                    "Key": "SecurityDeposit",
+                    "Value": "@if(\r\n  not(empty(string(body('Document_Details')?['Security Deposit']))),\r\n  body('Document_Details')?['Security Deposit'],\r\n  'exclude'\r\n)",
+                    "Type": "Number"
+                  },
+                  {
+                    "Key": "LandlordIncentiveFee",
+                    "Value": "@if(\r\n  not(empty(string(body('Document_Details')?['Landlord Incentive']))),\r\n  body('Document_Details')?['Landlord Incentive'],\r\n  'exclude'\r\n)",
+                    "Type": "Number"
+                  },
+                  {
+                    "Key": "DHAStatus",
+                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['DHA Status']))),\n  body('Document_Details')?['DHA Status'],\n  'exclude'\n)",
+                    "Type": "Text"
+                  },
+                  {
+                    "Key": "DHANotesPreview",
+                    "Value": "@if(\r\n  not(\r\n    equals(\r\n      string(triggerBody()?['DHANotes']),\r\n      string(triggerBody()?['DHANotesPreview'])\r\n    )\r\n  ),\r\n  triggerBody()?['DHANotes'],\r\n  'exclude'\r\n)",
+                    "Type": "Text"
+                  }
+                ],
+                "where": "@equals(and(\r\n  not(\r\n    equals(\r\n      string(item()?['Value']),\r\n      'exclude'\r\n    )\r\n  ),\r\n  not(\r\n    empty(string(item()?['Value']))\r\n  )\r\n),true)"
+              },
+              "runAfter": {
+                "Document_Details": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Valid_Payload": {
+              "type": "If",
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@empty(body('HAP_Payload'))",
+                      "@false"
+                    ]
+                  }
+                ]
+              },
+              "actions": {
+                "Payload_Array": {
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@body('HAP_Payload')",
+                    "select": {
+                      "@{item()?['Key']}": "@item()?['Value']"
+                    }
+                  }
+                },
+                "Payload_Object": {
+                  "type": "Compose",
+                  "inputs": "@json(\r\n  substring(\r\n    replace(\r\n      string(body('Payload_Array')),\r\n      '},{',\r\n      ','\r\n    ), \r\n    1, \r\n    sub(\r\n      length(\r\n        replace(\r\n          string(body('Payload_Array')),\r\n          '},{',\r\n          ','\r\n        )\r\n      ), \r\n      2\r\n    )\r\n  )\r\n)",
+                  "runAfter": {
+                    "Payload_Array": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "SPL_Connector_URL": {
+                  "type": "Workflow",
+                  "inputs": {
+                    "host": {
+                      "workflowReferenceName": "7d4722cf-b06f-f111-ab0d-7c1e525965e1"
+                    },
+                    "body": {
+                      "text": "UPM-DHA SharePoint Connector"
+                    }
+                  },
+                  "runAfter": {
+                    "Payload_Requests": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Payload_Requests": {
+                  "type": "Compose",
+                  "inputs": [
+                    {
+                      "Site Address": "@{parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')}",
+                      "Uri": "_api/web/lists(guid'@{parameters('UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)')}')",
+                      "Method": "GET",
+                      "Output": "ListItemEntityTypeFullName"
+                    },
+                    {
+                      "Site Address": "@{parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')}",
+                      "Uri": "_api/web/lists(guid'@{parameters('UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)')}')/items(@{triggerBody()?['ID']})",
+                      "Method": "POST",
+                      "Headers": {
+                        "Content-Type": "application/json;odata=verbose",
+                        "IF-MATCH": "*",
+                        "X-HTTP-Method": "MERGE"
+                      },
+                      "Body": "@addProperty(\r\n  addProperty(\r\n    outputs('Payload_Object'),\r\n    'Processed',\r\n    true\r\n  ),\r\n  '__metadata',\r\n  json('{\"type\": \"_replace_with_previous_output_\"}')\r\n)"
+                    }
+                  ],
+                  "runAfter": {
+                    "Payload_Object": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Send_SPL_Requests": {
+                  "type": "Http",
+                  "inputs": {
+                    "uri": "@body('SPL_Connector_URL')?['callback_url']",
+                    "method": "POST",
+                    "body": "@outputs('Payload_Requests')",
+                    "retryPolicy": {
+                      "type": "fixed",
+                      "count": 2,
+                      "interval": "PT20S"
+                    }
+                  },
+                  "runAfter": {
+                    "SPL_Connector_URL": [
+                      "Succeeded"
+                    ]
+                  },
+                  "runtimeConfiguration": {
+                    "contentTransfer": {
+                      "transferMode": "Chunked"
+                    }
+                  }
+                }
+              },
+              "else": {
+                "actions": {}
+              },
+              "runAfter": {
+                "HAP_Payload": [
+                  "Succeeded"
+                ]
+              }
+            }
+          },
+          "else": {
+            "actions": {}
+          },
+          "runAfter": {
+            "Get_changes_for_item": [
+              "Succeeded"
+            ]
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

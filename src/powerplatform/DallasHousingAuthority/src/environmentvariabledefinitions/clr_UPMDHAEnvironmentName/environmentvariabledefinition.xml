@@ -1,0 +1,11 @@
+<environmentvariabledefinition schemaname="clr_UPMDHAEnvironmentName">
+  <defaultvalue>Upside Capital PAYG</defaultvalue>
+  <displayname default="UPM-DHA Environment (Name)">
+    <label description="UPM-DHA Environment (Name)" languagecode="1033" />
+  </displayname>
+  <introducedversion>0.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

@@ -1,0 +1,306 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline-1": {
+        "api": {
+          "name": "shared_sharepointonline"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UPMDHASharePointConnection"
+        },
+        "runtimeSource": "embedded"
+      },
+      "shared_keyvault": {
+        "api": {
+          "name": "shared_keyvault"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UPMDHAAzureVaultConnection"
+        },
+        "runtimeSource": "embedded"
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)": {
+          "defaultValue": "https://upsidecapitalholdings.sharepoint.com/Automation/UPM-DHA/DEV",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointSite"
+          }
+        },
+        "UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)": {
+          "defaultValue": "26ac3f0d-5a5d-47cd-a6b8-1e99b9d34b87",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListIntakeForm"
+          }
+        },
+        "UPM-DHA SharePoint List (Data Filters) (clr_UPMDHASharePointListDataFilters)": {
+          "defaultValue": "6b39fb7c-9a49-4434-9f3a-8e7427ed97cd",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListDataFilters"
+          }
+        },
+        "UPM-DHA SharePoint List Item (ID | Incomplete DHA Details) (clr_UPMDHASharePointListItemIDIncompleteDHADetails)": {
+          "defaultValue": "1",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListItemIDIncompleteDHADetails"
+          }
+        },
+        "UPM-DHA ResMan API (Secret Name) (clr_UPMDHAResManAPISecretName)": {
+          "defaultValue": "ResMan-Authorization-PRD",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHAResManAPISecretName"
+          }
+        },
+        "UPM-DHA SharePoint List (GPT Prompts) (clr_UPMDHASharePointListGPTPrompts)": {
+          "defaultValue": "add0956c-c84c-4e31-aeb8-5921666e7aaf",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListGPTPrompts"
+          }
+        }
+      },
+      "triggers": {
+        "Recurrence": {
+          "type": "Recurrence",
+          "recurrence": {
+            "frequency": "Day",
+            "interval": 1,
+            "timeZone": "Pacific Standard Time",
+            "startTime": "2026-07-09T02:00:00Z",
+            "schedule": {
+              "hours": [
+                "8",
+                "12",
+                "16"
+              ]
+            }
+          },
+          "metadata": {
+            "operationMetadataId": "4e1b45a4-d6e9-4500-85ec-36c88461537b"
+          }
+        }
+      },
+      "actions": {
+        "Get_INC_Tenants": {
+          "type": "Scope",
+          "actions": {
+            "Get_Resident_Filter": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                  "table": "@parameters('UPM-DHA SharePoint List (Data Filters) (clr_UPMDHASharePointListDataFilters)')",
+                  "id": "@int(parameters('UPM-DHA SharePoint List Item (ID | Incomplete DHA Details) (clr_UPMDHASharePointListItemIDIncompleteDHADetails)'))"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "GetItem",
+                  "connectionName": "shared_sharepointonline-1"
+                }
+              }
+            },
+            "Get_Incomplete_DHA": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                  "table": "@parameters('UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)')",
+                  "$filter": "@outputs('Get_Resident_Filter')?['body/DataFilter']"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "GetItems",
+                  "connectionName": "shared_sharepointonline-1"
+                }
+              },
+              "runAfter": {
+                "Get_Resident_Filter": [
+                  "Succeeded"
+                ]
+              },
+              "runtimeConfiguration": {
+                "paginationPolicy": {
+                  "minimumItemCount": 5000
+                }
+              },
+              "metadata": {
+                "operationMetadataId": "23fbea8f-4b56-4b3a-b5f4-2b48e7a15287"
+              }
+            },
+            "Incomp_DHA_Filter": {
+              "type": "Query",
+              "inputs": {
+                "from": "@outputs('Get_Incomplete_DHA')?['body/value']",
+                "where": "@equals(or(\r\n  empty(string(item()?['HAPContract'])),\r\n  empty(string(item()?['WelcomeLetter']))\r\n),true)"
+              },
+              "runAfter": {
+                "Get_Incomplete_DHA": [
+                  "Succeeded"
+                ]
+              }
+            }
+          },
+          "runAfter": {
+            "Set_Prerequisites": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Each_INC_Tenant": {
+          "type": "Foreach",
+          "foreach": "@body('Incomp_DHA_Filter')",
+          "actions": {
+            "Current_DHA_Details": {
+              "type": "Compose",
+              "inputs": {
+                "CaseworkerName": "@items('Each_INC_Tenant')?['CaseworkerName']",
+                "CaseworkerContact": "@items('Each_INC_Tenant')?['CaseworkerContact']",
+                "HAPContractStart": "@items('Each_INC_Tenant')?['HAPContractStart']",
+                "HAPContractEnd": "@items('Each_INC_Tenant')?['HAPContractEnd']",
+                "MonthlyRent": "@items('Each_INC_Tenant')?['MonthlyRent']",
+                "HAPPortion": "@items('Each_INC_Tenant')?['HAPPortion']",
+                "ApplicationFee": "@items('Each_INC_Tenant')?['ApplicationFee']",
+                "AdministrativeFee": "@items('Each_INC_Tenant')?['AdministrativeFee']",
+                "RiskFee": "@items('Each_INC_Tenant')?['RiskFee']",
+                "LandlordIncentiveFee": "@items('Each_INC_Tenant')?['LandlordIncentiveFee']",
+                "SecurityDeposit": "@items('Each_INC_Tenant')?['SecurityDeposit']",
+                "HAPContract": "@items('Each_INC_Tenant')?['HAPContract']",
+                "WelcomeLetter": "@items('Each_INC_Tenant')?['WelcomeLetter']",
+                "HAPAmendment1Date": "@items('Each_INC_Tenant')?['HAPAmendment1Date']",
+                "HAPAmendment2Date": "@items('Each_INC_Tenant')?['HAPAmendment2Date']",
+                "HAPAmendment3Date": "@items('Each_INC_Tenant')?['HAPAmendment3Date']",
+                "HAPAmendment1Portion": "@items('Each_INC_Tenant')?['HAPAmendment1Portion']",
+                "HAPAmendment2Portion": "@items('Each_INC_Tenant')?['HAPAmendment2Portion']",
+                "HAPAmendment3Portion": "@items('Each_INC_Tenant')?['HAPAmendment3Portion']"
+              }
+            },
+            "Extract_Doc_Content": {
+              "type": "Workflow",
+              "inputs": {
+                "host": {
+                  "workflowReferenceName": "20acdbdd-3d7c-f111-ab0e-6045bdd75008"
+                },
+                "body": {
+                  "text": "@outputs('Get_System_Prompt')?['body/SystemPrompt']",
+                  "text_1": "@string(outputs('Current_DHA_Details'))",
+                  "text_2": "@items('Each_INC_Tenant')?['Tenant_x0020_Name_x003a__x0020_p1/Value']",
+                  "text_3": "@items('Each_INC_Tenant')?['Tenant_x0020_Name_x003a__x0020_b/Value']",
+                  "text_4": "@items('Each_INC_Tenant')?['TenantName/Value']",
+                  "number": "@items('Each_INC_Tenant')?['ID']",
+                  "text_5": "@coalesce(\r\n  items('Each_INC_Tenant')?['Tenant_x0020_Name_x003a__x0020_l/Value'],\r\n  ''\r\n)",
+                  "text_6": "null",
+                  "text_7": "@string(items('Each_INC_Tenant')?['Processed'])",
+                  "text_8": "@coalesce(\r\n  items('Each_INC_Tenant')?['HAPContract'],\r\n  ''\r\n)",
+                  "text_9": "@coalesce(\r\n  items('Each_INC_Tenant')?['WelcomeLetter'],\r\n  ''\r\n)",
+                  "text_10": "@coalesce(\r\n  items('Each_INC_Tenant')?['AmendmentNotice'],\r\n  ''\r\n)",
+                  "text_11": "@body('LLM_Analysis_URL')?['callback_url']",
+                  "text_12": "@body('SPL_Connector_URL')?['callback_url']",
+                  "text_13": "@outputs('Get_ResMan_Secret')?['body/value']"
+                }
+              },
+              "runAfter": {
+                "Current_DHA_Details": [
+                  "Succeeded"
+                ]
+              }
+            }
+          },
+          "runAfter": {
+            "Get_INC_Tenants": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Set_Prerequisites": {
+          "type": "Scope",
+          "actions": {
+            "Get_ResMan_Secret": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "secretName": "@parameters('UPM-DHA ResMan API (Secret Name) (clr_UPMDHAResManAPISecretName)')"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_keyvault",
+                  "operationId": "GetSecret",
+                  "connectionName": "shared_keyvault"
+                }
+              }
+            },
+            "Get_System_Prompt": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                  "table": "@parameters('UPM-DHA SharePoint List (GPT Prompts) (clr_UPMDHASharePointListGPTPrompts)')",
+                  "id": 1
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "GetItem",
+                  "connectionName": "shared_sharepointonline-1"
+                }
+              },
+              "runAfter": {
+                "Get_ResMan_Secret": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "LLM_Analysis_URL": {
+              "type": "Workflow",
+              "inputs": {
+                "host": {
+                  "workflowReferenceName": "7d4722cf-b06f-f111-ab0d-7c1e525965e1"
+                },
+                "body": {
+                  "text": "UPM-DHA LLM Analysis Endpoint"
+                }
+              },
+              "runAfter": {
+                "Get_System_Prompt": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "SPL_Connector_URL": {
+              "type": "Workflow",
+              "inputs": {
+                "host": {
+                  "workflowReferenceName": "7d4722cf-b06f-f111-ab0d-7c1e525965e1"
+                },
+                "body": {
+                  "text": "UPM-DHA SharePoint Connector"
+                }
+              },
+              "runAfter": {
+                "LLM_Analysis_URL": [
+                  "Succeeded"
+                ]
+              }
+            }
+          },
+          "runAfter": {}
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

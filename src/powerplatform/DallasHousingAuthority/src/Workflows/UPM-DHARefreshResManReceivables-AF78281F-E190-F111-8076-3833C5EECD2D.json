@@ -1,0 +1,60 @@
+{
+  "properties": {
+    "connectionReferences": {},
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "manual": {
+          "type": "Request",
+          "kind": "Http",
+          "inputs": {
+            "triggerAuthenticationType": "Tenant"
+          },
+          "metadata": {
+            "operationMetadataId": "da0346cd-ad93-4dc6-827d-f67bae2be1de"
+          }
+        }
+      },
+      "actions": {
+        "Response": {
+          "type": "Response",
+          "kind": "Http",
+          "inputs": {
+            "statusCode": 200
+          },
+          "runAfter": {
+            "Refresh_Receivables": [
+              "SUCCEEDED",
+              "FAILED"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "4cc853bc-9780-4e2a-a564-b795de1641e1"
+          }
+        },
+        "Refresh_Receivables": {
+          "type": "Workflow",
+          "inputs": {
+            "host": {
+              "workflowReferenceName": "d0890405-df84-f111-ab0f-6045bdd75008"
+            }
+          },
+          "runAfter": {}
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

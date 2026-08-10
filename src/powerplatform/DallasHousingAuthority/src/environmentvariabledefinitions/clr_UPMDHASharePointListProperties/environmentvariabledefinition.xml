@@ -1,0 +1,16 @@
+<environmentvariabledefinition schemaname="clr_UPMDHASharePointListProperties">
+  <apiid>/providers/microsoft.powerapps/apis/shared_sharepointonline</apiid>
+  <defaultvalue>871cdcb2-667c-4330-9a24-12c9daca3519</defaultvalue>
+  <displayname default="UPM-DHA SharePoint List (Properties)">
+    <label description="UPM-DHA SharePoint List (Properties)" languagecode="1033" />
+  </displayname>
+  <introducedversion>0.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <parameterkey>table</parameterkey>
+  <parentdefinitionid>
+    <schemaname>clr_UPMDHASharePointSite</schemaname>
+  </parentdefinitionid>
+  <secretstore>0</secretstore>
+  <type>100000004</type>
+</environmentvariabledefinition>

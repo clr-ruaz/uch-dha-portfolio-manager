@@ -1,0 +1,975 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline-1": {
+        "api": {
+          "name": "shared_sharepointonline"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UPMDHASharePointConnection"
+        },
+        "runtimeSource": "embedded"
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "UPM-DHA SharePoint Library (Documents) (clr_UPSDHASharePointLibraryDocuments)": {
+          "defaultValue": "25bb2029-7af1-4af0-9efe-beddf5747e9e",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPSDHASharePointLibraryDocuments"
+          }
+        },
+        "UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)": {
+          "defaultValue": "https://upsidecapitalholdings.sharepoint.com/Automation/UPM-DHA/DEV",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointSite"
+          }
+        },
+        "UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)": {
+          "defaultValue": "26ac3f0d-5a5d-47cd-a6b8-1e99b9d34b87",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListIntakeForm"
+          }
+        },
+        "UPM-DHA SharePoint List (GPT Prompts) (clr_UPMDHASharePointListGPTPrompts)": {
+          "defaultValue": "add0956c-c84c-4e31-aeb8-5921666e7aaf",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListGPTPrompts"
+          }
+        }
+      },
+      "triggers": {
+        "When_a_file_is_created_(properties_only)": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+              "table": "@parameters('UPM-DHA SharePoint Library (Documents) (clr_UPSDHASharePointLibraryDocuments)')"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "GetOnNewFileItems",
+              "connectionName": "shared_sharepointonline-1"
+            }
+          },
+          "recurrence": {
+            "interval": 1,
+            "frequency": "Minute"
+          },
+          "conditions": [
+            {
+              "expression": "@equals(triggerBody()?['Status'], 'Queued')"
+            }
+          ],
+          "splitOn": "@triggerOutputs()?['body/value']"
+        }
+      },
+      "actions": {
+        "Init_SPL_Payload_Ary": {
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "arySPL_Payload",
+                "type": "array"
+              }
+            ]
+          },
+          "runAfter": {}
+        },
+        "Process_Payload": {
+          "type": "Scope",
+          "actions": {
+            "Valid_Payload": {
+              "type": "If",
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@empty(variables('arySPL_Payload'))",
+                      "@false"
+                    ]
+                  }
+                ]
+              },
+              "actions": {
+                "Payload_Array": {
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@variables('arySPL_Payload')",
+                    "select": {
+                      "@{item()?['Key']}": "@item()?['Value']"
+                    }
+                  }
+                },
+                "Payload_Object": {
+                  "type": "Compose",
+                  "inputs": "@json(\n  substring(\n    replace(\n      string(body('Payload_Array')),\n      '},{',\n      ','\n    ), \n    1, \n    sub(\n      length(\n        replace(\n          string(body('Payload_Array')),\n          '},{',\n          ','\n        )\n      ), \n      2\n    )\n  )\n)",
+                  "runAfter": {
+                    "Payload_Array": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Payload_Requests": {
+                  "type": "Compose",
+                  "inputs": [
+                    {
+                      "Site Address": "@{parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')}",
+                      "Uri": "_api/web/lists(guid'@{parameters('UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)')}')",
+                      "Method": "GET",
+                      "Output": "ListItemEntityTypeFullName"
+                    },
+                    {
+                      "Site Address": "@{parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')}",
+                      "Uri": "_api/web/lists(guid'@{parameters('UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)')}')/items(@{replace(\n  replace(\n    last(\n      split(\n        triggerBody()?['{Path}'], \n        '(')\n      ),\n    ')',\n    ''\n  ),\n  '/',\n  ''\n)})",
+                      "Method": "POST",
+                      "Headers": {
+                        "Content-Type": "application/json;odata=verbose",
+                        "IF-MATCH": "*",
+                        "X-HTTP-Method": "MERGE"
+                      },
+                      "Body": "@addProperty(\n  addProperty(\n    outputs('Payload_Object'),\n    'Processed',\n    true\n  ),\n  '__metadata',\n  json('{\"type\": \"_replace_with_previous_output_\"}')\n)"
+                    }
+                  ],
+                  "runAfter": {
+                    "Payload_Object": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Send_SPL_Requests": {
+                  "type": "Http",
+                  "inputs": {
+                    "uri": "@body('SPL_Connector_URL')?['callback_url']",
+                    "method": "POST",
+                    "body": "@outputs('Payload_Requests')",
+                    "retryPolicy": {
+                      "type": "fixed",
+                      "count": 2,
+                      "interval": "PT20S"
+                    }
+                  },
+                  "runAfter": {
+                    "Payload_Requests": [
+                      "Succeeded"
+                    ]
+                  },
+                  "runtimeConfiguration": {
+                    "contentTransfer": {
+                      "transferMode": "Chunked"
+                    }
+                  }
+                }
+              },
+              "else": {
+                "actions": {}
+              },
+              "runAfter": {
+                "SPL_Connector_URL": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "SPL_Connector_URL": {
+              "type": "Workflow",
+              "inputs": {
+                "host": {
+                  "workflowReferenceName": "7d4722cf-b06f-f111-ab0d-7c1e525965e1"
+                },
+                "body": {
+                  "text": "UPM-DHA SharePoint Connector"
+                }
+              }
+            }
+          },
+          "runAfter": {
+            "Process_Doc": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Process_Doc": {
+          "type": "Scope",
+          "actions": {
+            "Get_file_content": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                  "id": "@triggerBody()?['{Identifier}']",
+                  "inferContentType": true
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "GetFileContent",
+                  "connectionName": "shared_sharepointonline-1"
+                }
+              }
+            },
+            "Get_System_Prompt": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                  "table": "@parameters('UPM-DHA SharePoint List (GPT Prompts) (clr_UPMDHASharePointListGPTPrompts)')",
+                  "id": 1
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "GetItem",
+                  "connectionName": "shared_sharepointonline-1"
+                }
+              },
+              "runAfter": {
+                "Get_file_content": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "LLM_Analysis_URL": {
+              "type": "Workflow",
+              "inputs": {
+                "host": {
+                  "workflowReferenceName": "7d4722cf-b06f-f111-ab0d-7c1e525965e1"
+                },
+                "body": {
+                  "text": "UPM-DHA LLM Analysis Endoint"
+                }
+              },
+              "runAfter": {
+                "Get_System_Prompt": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "POST_LLM_Analysis": {
+              "type": "Http",
+              "inputs": {
+                "uri": "@body('LLM_Analysis_URL')?['callback_url']",
+                "method": "POST",
+                "body": {
+                  "System Message": "@outputs('Get_System_Prompt')?['body/SystemPrompt']",
+                  "User Message": [
+                    "@if(\n  contains(\n    body('Get_file_content')?['$content-type'],\n    'image'\n  ),\n  addProperty(\n    json('{\"type\": \"input_image\"}'),\n    'image_url',\n    concat(\n      'data:', body('Get_file_content')?['$content-type'],\n      ';base64,', base64(body('Get_file_content'))\n    )\n  ),\n  addProperty(\n    addProperty(\n      json('{\"type\": \"input_file\"}'),\n      'file_data',\n      concat(\n        'data:', body('Get_file_content')?['$content-type'],\n        ';base64,', base64(body('Get_file_content'))\n      )\n    ),\n    'filename',\n    triggerBody()?['{Name}']\n  )\n)",
+                    {
+                      "type": "input_text",
+                      "text": "Extract the relevant content from the document."
+                    }
+                  ],
+                  "JSON Format": true
+                }
+              },
+              "runAfter": {
+                "LLM_Analysis_URL": [
+                  "Succeeded"
+                ]
+              },
+              "runtimeConfiguration": {
+                "contentTransfer": {
+                  "transferMode": "Chunked"
+                }
+              }
+            },
+            "LLM_Response": {
+              "type": "If",
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@body('POST_LLM_Analysis')?['Status']",
+                      "Successful"
+                    ]
+                  }
+                ]
+              },
+              "actions": {
+                "Document_Details": {
+                  "type": "ParseJson",
+                  "inputs": {
+                    "content": "@json(body('POST_LLM_Analysis')?['Response'])",
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "Document Type": {
+                          "type": "string"
+                        },
+                        "Coordinator Name": {
+                          "type": "string"
+                        },
+                        "Coordinator Email": {
+                          "type": "string"
+                        },
+                        "Coordinator Phone": {
+                          "type": "string"
+                        },
+                        "Lease Start Date": {
+                          "type": "string"
+                        },
+                        "Lease End Date": {
+                          "type": "string"
+                        },
+                        "Monthly Rent": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "HAP Amount": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "Application Fee": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "Administrative Fee": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "Risk Fee": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "Landlord Incentive": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "Security Deposit": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "Amendments": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "Amendment Effective Date": {
+                                "type": "string"
+                              },
+                              "HAP Amount": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "Monthly Rent": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "Valid_Document": {
+                  "type": "If",
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@empty(body('Document_Details')?['Document Type'])",
+                          "@false"
+                        ]
+                      }
+                    ]
+                  },
+                  "actions": {
+                    "Document_Type": {
+                      "type": "Switch",
+                      "expression": "@body('Document_Details')?['Document Type']",
+                      "default": {
+                        "actions": {
+                          "HAP_Payload": {
+                            "type": "Query",
+                            "inputs": {
+                              "from": [
+                                {
+                                  "Key": "CaseworkerName",
+                                  "Value": "@if(\n  not(empty(string(body('Document_Details')?['Coordinator Name']))),\n  body('Document_Details')?['Coordinator Name'],\n  'exclude'\n)",
+                                  "Type": "Text"
+                                },
+                                {
+                                  "Key": "CaseworkerContact",
+                                  "Value": "@if(\n  or(\n    not(empty(string(body('Document_Details')?['Coordinator Email']))),\n    not(empty(string(body('Document_Details')?['Coordinator Phone'])))\n  ),\n  concat(\n    body('Document_Details')?['Coordinator Email'],\n    if(\n      or(\n        empty(body('Document_Details')?['Coordinator Email']),\n        empty(body('Document_Details')?['Coordinator Phone'])\n      ),\n      '',\n      ' / '\n    ),\n    body('Document_Details')?['Coordinator Phone']\n  ),\n  'exclude'\n)",
+                                  "Type": "Text"
+                                },
+                                {
+                                  "Key": "HAPContractStart",
+                                  "Value": "@if(\n  and(\n    not(empty(body('Document_Details')?['Lease Start Date'])),\n    not(empty(body('Document_Details')?['Lease End Date']))\n  ),\n  body('Document_Details')?['Lease Start Date'],\n  'exclude'\n)",
+                                  "Type": "Number"
+                                },
+                                {
+                                  "Key": "HAPContractEnd",
+                                  "Value": "@if(\n  not(empty(string(body('Document_Details')?['Lease End Date']))),\n  body('Document_Details')?['Lease End Date'],\n  'exclude'\n)",
+                                  "Type": "Number"
+                                },
+                                {
+                                  "Key": "MonthlyRent",
+                                  "Value": "@if(\n  not(empty(string(body('Document_Details')?['Monthly Rent']))),\n  body('Document_Details')?['Monthly Rent'],\n  'exclude'\n)",
+                                  "Type": "Number"
+                                },
+                                {
+                                  "Key": "HAPPortion",
+                                  "Value": "@if(\n  not(empty(string(body('Document_Details')?['HAP Amount']))),\n  body('Document_Details')?['HAP Amount'],\n  'exclude'\n)",
+                                  "Type": "Number"
+                                },
+                                {
+                                  "Key": "ApplicationFee",
+                                  "Value": "@if(\n  not(empty(string(body('Document_Details')?['Application Fee']))),\n  body('Document_Details')?['Application Fee'],\n  'exclude'\n)",
+                                  "Type": "Number"
+                                },
+                                {
+                                  "Key": "AdministrativeFee",
+                                  "Value": "@if(\n  not(empty(string(body('Document_Details')?['Administrative Fee']))),\n  body('Document_Details')?['Administrative Fee'],\n  'exclude'\n)",
+                                  "Type": "Number"
+                                },
+                                {
+                                  "Key": "RiskFee",
+                                  "Value": "@if(\n  not(empty(string(body('Document_Details')?['Risk Fee']))),\n  body('Document_Details')?['Risk Fee'],\n  'exclude'\n)",
+                                  "Type": "Number"
+                                },
+                                {
+                                  "Key": "SecurityDeposit",
+                                  "Value": "@if(\n  not(empty(string(body('Document_Details')?['Security Deposit']))),\n  body('Document_Details')?['Security Deposit'],\n  'exclude'\n)",
+                                  "Type": "Number"
+                                },
+                                {
+                                  "Key": "HAPContract",
+                                  "Value": "@triggerBody()?['{FilenameWithExtension}']",
+                                  "Type": "Text"
+                                }
+                              ],
+                              "where": "@equals(and(\r\n  not(\r\n    equals(\r\n      string(item()?['Value']),\r\n      'exclude'\r\n    )\r\n  ),\r\n  not(\r\n    empty(string(item()?['Value']))\r\n  )\r\n),true)"
+                            }
+                          },
+                          "Add_HAP_Payload": {
+                            "type": "Compose",
+                            "inputs": "@union(\n  variables('arySPL_Payload'),\n  body('HAP_Payload')\n)",
+                            "runAfter": {
+                              "HAP_Payload": [
+                                "Succeeded"
+                              ]
+                            }
+                          },
+                          "Set_HAP_Payload_Ary": {
+                            "type": "SetVariable",
+                            "inputs": {
+                              "name": "arySPL_Payload",
+                              "value": "@outputs('Add_HAP_Payload')"
+                            },
+                            "runAfter": {
+                              "Add_HAP_Payload": [
+                                "Succeeded"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      "cases": {
+                        "The_Ashley_Invoice": {
+                          "actions": {
+                            "Ashley_Welcm_Pyld": {
+                              "type": "Query",
+                              "inputs": {
+                                "from": [
+                                  {
+                                    "Key": "HAPContractStart",
+                                    "Value": "@if(\n  and(\n    not(empty(body('Document_Details')?['Lease Start Date'])),\n    not(empty(body('Document_Details')?['Lease End Date']))\n  ),\n  body('Document_Details')?['Lease Start Date'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "HAPContractEnd",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Lease End Date']))),\n  body('Document_Details')?['Lease End Date'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "MonthlyRent",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Monthly Rent']))),\n  body('Document_Details')?['Monthly Rent'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "HAPPortion",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['HAP Amount']))),\n  body('Document_Details')?['HAP Amount'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "ApplicationFee",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Application Fee']))),\n  body('Document_Details')?['Application Fee'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "AdministrativeFee",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Administrative Fee']))),\n  body('Document_Details')?['Administrative Fee'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "RiskFee",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Risk Fee']))),\n  body('Document_Details')?['Risk Fee'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "LandlordIncentiveFee",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Landlord Incentive']))),\n  body('Document_Details')?['Landlord Incentive'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "SecurityDeposit",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Security Deposit']))),\n  body('Document_Details')?['Security Deposit'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "WelcomeLetter",
+                                    "Value": "@triggerBody()?['{FilenameWithExtension}']",
+                                    "Type": "Text"
+                                  }
+                                ],
+                                "where": "@equals(and(\n  not(\n    equals(\n      string(item()?['Value']),\n      'exclude'\n    )\n  ),\n  not(\n    empty(string(item()?['Value']))\n  )\n),true)"
+                              }
+                            },
+                            "Add_Ashley_Welcome": {
+                              "type": "Compose",
+                              "inputs": "@union(\r\n  variables('arySPL_Payload'),\r\n  body('Ashley_Welcm_Pyld')\r\n)",
+                              "runAfter": {
+                                "Ashley_Welcm_Pyld": [
+                                  "Succeeded"
+                                ]
+                              }
+                            },
+                            "Set_Ashley_Welcome": {
+                              "type": "SetVariable",
+                              "inputs": {
+                                "name": "arySPL_Payload",
+                                "value": "@outputs('Add_Ashley_Welcome')"
+                              },
+                              "runAfter": {
+                                "Add_Ashley_Welcome": [
+                                  "Succeeded"
+                                ]
+                              }
+                            }
+                          },
+                          "case": "The Ashley Invoice"
+                        },
+                        "The_Ashley_Welcome": {
+                          "actions": {
+                            "Ashley_Inv_Payload": {
+                              "type": "Query",
+                              "inputs": {
+                                "from": [
+                                  {
+                                    "Key": "HAPContractStart",
+                                    "Value": "@if(\n  and(\n    not(empty(body('Document_Details')?['Lease Start Date'])),\n    not(empty(body('Document_Details')?['Lease End Date']))\n  ),\n  body('Document_Details')?['Lease Start Date'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "HAPContractEnd",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Lease End Date']))),\n  body('Document_Details')?['Lease End Date'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "MonthlyRent",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Monthly Rent']))),\n  body('Document_Details')?['Monthly Rent'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "HAPPortion",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['HAP Amount']))),\n  body('Document_Details')?['HAP Amount'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "ApplicationFee",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Application Fee']))),\n  body('Document_Details')?['Application Fee'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "AdministrativeFee",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Administrative Fee']))),\n  body('Document_Details')?['Administrative Fee'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "RiskFee",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Risk Fee']))),\n  body('Document_Details')?['Risk Fee'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "LandlordIncentiveFee",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Landlord Incentive']))),\n  body('Document_Details')?['Landlord Incentive'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "SecurityDeposit",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Security Deposit']))),\n  body('Document_Details')?['Security Deposit'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "WelcomeLetter",
+                                    "Value": "@triggerBody()?['{FilenameWithExtension}']",
+                                    "Type": "Text"
+                                  }
+                                ],
+                                "where": "@equals(and(\r\n  not(\r\n    equals(\r\n      string(item()?['Value']),\r\n      'exclude'\r\n    )\r\n  ),\r\n  not(\r\n    empty(string(item()?['Value']))\r\n  )\r\n),true)"
+                              }
+                            },
+                            "Add_Ashley_Invoice": {
+                              "type": "Compose",
+                              "inputs": "@union(\r\n  variables('arySPL_Payload'),\r\n  body('Ashley_Inv_Payload')\r\n)",
+                              "runAfter": {
+                                "Ashley_Inv_Payload": [
+                                  "Succeeded"
+                                ]
+                              }
+                            },
+                            "Set_Ashley_Invoice": {
+                              "type": "SetVariable",
+                              "inputs": {
+                                "name": "arySPL_Payload",
+                                "value": "@outputs('Add_Ashley_Invoice')"
+                              },
+                              "runAfter": {
+                                "Add_Ashley_Invoice": [
+                                  "Succeeded"
+                                ]
+                              }
+                            }
+                          },
+                          "case": "The Ashley Welcome Letter"
+                        },
+                        "HAP_Amendment": {
+                          "actions": {
+                            "HAP_Amend_Payload": {
+                              "type": "Query",
+                              "inputs": {
+                                "from": [
+                                  {
+                                    "Key": "MonthlyRent",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Monthly Rent']))),\n  body('Document_Details')?['Monthly Rent'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "HAPAmendment1Date",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Amendments']?[0]?['Amendment Effective Date']))),\n  body('Document_Details')?['Amendments']?[0]?['Amendment Effective Date'],\n  'exclude'\n)",
+                                    "Type": "Text"
+                                  },
+                                  {
+                                    "Key": "HAPAmendment1Portion",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Amendments']?[0]?['HAP Amount']))),\n  body('Document_Details')?['Amendments']?[0]?['HAP Amount'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "HAPAmendment2Date",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Amendments']?[1]?['Amendment Effective Date']))),\n  body('Document_Details')?['Amendments']?[1]?['Amendment Effective Date'],\n  'exclude'\n)",
+                                    "Type": "Text"
+                                  },
+                                  {
+                                    "Key": "HAPAmendment2Portion",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Amendments']?[1]?['HAP Amount']))),\n  body('Document_Details')?['Amendments']?[1]?['HAP Amount'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "HAPAmendment3Date",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Amendments']?[2]?['Amendment Effective Date']))),\n  body('Document_Details')?['Amendments']?[2]?['Amendment Effective Date'],\n  'exclude'\n)",
+                                    "Type": "Text"
+                                  },
+                                  {
+                                    "Key": "HAPAmendment3Portion",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Amendments']?[2]?['HAP Amount']))),\n  body('Document_Details')?['Amendments']?[2]?['HAP Amount'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "AmendmentNotice",
+                                    "Value": "@triggerBody()?['{FilenameWithExtension}']",
+                                    "Type": "Text"
+                                  }
+                                ],
+                                "where": "@equals(and(\r\n  not(\r\n    equals(\r\n      string(item()?['Value']),\r\n      'exclude'\r\n    )\r\n  ),\r\n  not(\r\n    empty(string(item()?['Value']))\r\n  )\r\n),true)"
+                              }
+                            },
+                            "Add_HAP_Amend": {
+                              "type": "Compose",
+                              "inputs": "@union(\r\n  variables('arySPL_Payload'),\r\n  body('HAP_Amend_Payload')\r\n)",
+                              "runAfter": {
+                                "HAP_Amend_Payload": [
+                                  "Succeeded"
+                                ]
+                              }
+                            },
+                            "Set_HAP_Amend": {
+                              "type": "SetVariable",
+                              "inputs": {
+                                "name": "arySPL_Payload",
+                                "value": "@outputs('Add_HAP_Amend')"
+                              },
+                              "runAfter": {
+                                "Add_HAP_Amend": [
+                                  "Succeeded"
+                                ]
+                              }
+                            }
+                          },
+                          "case": "Housing Assistance Payments Contract Amendment Notice"
+                        },
+                        "Ace_Invoice": {
+                          "actions": {
+                            "Ace_Invoice_Payload": {
+                              "type": "Query",
+                              "inputs": {
+                                "from": [
+                                  {
+                                    "Key": "HAPContractStart",
+                                    "Value": "@if(\n  and(\n    not(empty(body('Document_Details')?['Lease Start Date'])),\n    not(empty(body('Document_Details')?['Lease End Date']))\n  ),\n  body('Document_Details')?['Lease Start Date'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "HAPContractEnd",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Lease End Date']))),\n  body('Document_Details')?['Lease End Date'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "MonthlyRent",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Monthly Rent']))),\n  body('Document_Details')?['Monthly Rent'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "HAPPortion",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['HAP Amount']))),\n  body('Document_Details')?['HAP Amount'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "ApplicationFee",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Application Fee']))),\n  body('Document_Details')?['Application Fee'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "AdministrativeFee",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Administrative Fee']))),\n  body('Document_Details')?['Administrative Fee'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "RiskFee",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Risk Fee']))),\n  body('Document_Details')?['Risk Fee'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "LandlordIncentiveFee",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Landlord Incentive']))),\n  body('Document_Details')?['Landlord Incentive'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "SecurityDeposit",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Security Deposit']))),\n  body('Document_Details')?['Security Deposit'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "WelcomeLetter",
+                                    "Value": "@triggerBody()?['{FilenameWithExtension}']",
+                                    "Type": "Text"
+                                  }
+                                ],
+                                "where": "@equals(and(\r\n  not(\r\n    equals(\r\n      string(item()?['Value']),\r\n      'exclude'\r\n    )\r\n  ),\r\n  not(\r\n    empty(string(item()?['Value']))\r\n  )\r\n),true)"
+                              }
+                            },
+                            "Add_Ace_Invoice": {
+                              "type": "Compose",
+                              "inputs": "@union(\r\n  variables('arySPL_Payload'),\r\n  body('Ace_Invoice_Payload')\r\n)",
+                              "runAfter": {
+                                "Ace_Invoice_Payload": [
+                                  "Succeeded"
+                                ]
+                              }
+                            },
+                            "Set_Ace_Invoice": {
+                              "type": "SetVariable",
+                              "inputs": {
+                                "name": "arySPL_Payload",
+                                "value": "@outputs('Add_Ace_Invoice')"
+                              },
+                              "runAfter": {
+                                "Add_Ace_Invoice": [
+                                  "Succeeded"
+                                ]
+                              }
+                            }
+                          },
+                          "case": "The Ace Apartments Invoice"
+                        },
+                        "ACE_Welcome": {
+                          "actions": {
+                            "Ace_Welcome_Pyld": {
+                              "type": "Query",
+                              "inputs": {
+                                "from": [
+                                  {
+                                    "Key": "HAPContractStart",
+                                    "Value": "@if(\n  and(\n    not(empty(body('Document_Details')?['Lease Start Date'])),\n    not(empty(body('Document_Details')?['Lease End Date']))\n  ),\n  body('Document_Details')?['Lease Start Date'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "HAPContractEnd",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Lease End Date']))),\n  body('Document_Details')?['Lease End Date'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "MonthlyRent",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Monthly Rent']))),\n  body('Document_Details')?['Monthly Rent'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "HAPPortion",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['HAP Amount']))),\n  body('Document_Details')?['HAP Amount'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "ApplicationFee",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Application Fee']))),\n  body('Document_Details')?['Application Fee'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "AdministrativeFee",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Administrative Fee']))),\n  body('Document_Details')?['Administrative Fee'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "RiskFee",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Risk Fee']))),\n  body('Document_Details')?['Risk Fee'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "LandlordIncentiveFee",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Landlord Incentive']))),\n  body('Document_Details')?['Landlord Incentive'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "SecurityDeposit",
+                                    "Value": "@if(\n  not(empty(string(body('Document_Details')?['Security Deposit']))),\n  body('Document_Details')?['Security Deposit'],\n  'exclude'\n)",
+                                    "Type": "Number"
+                                  },
+                                  {
+                                    "Key": "WelcomeLetter",
+                                    "Value": "@triggerBody()?['{FilenameWithExtension}']",
+                                    "Type": "Text"
+                                  }
+                                ],
+                                "where": "@equals(and(\r\n  not(\r\n    equals(\r\n      string(item()?['Value']),\r\n      'exclude'\r\n    )\r\n  ),\r\n  not(\r\n    empty(string(item()?['Value']))\r\n  )\r\n),true)"
+                              }
+                            },
+                            "Add_Ace_Welcome": {
+                              "type": "Compose",
+                              "inputs": "@union(\n  variables('arySPL_Payload'),\n  body('Ace_Welcome_Pyld')\n)",
+                              "runAfter": {
+                                "Ace_Welcome_Pyld": [
+                                  "Succeeded"
+                                ]
+                              }
+                            },
+                            "Set_Ace_Welcome": {
+                              "type": "SetVariable",
+                              "inputs": {
+                                "name": "arySPL_Payload",
+                                "value": "@outputs('Add_Ace_Welcome')"
+                              },
+                              "runAfter": {
+                                "Add_Ace_Welcome": [
+                                  "Succeeded"
+                                ]
+                              }
+                            }
+                          },
+                          "case": "The Ace Apartments Welcome Letter"
+                        }
+                      },
+                      "runAfter": {
+                        "Document_Name": [
+                          "Succeeded",
+                          "Failed"
+                        ]
+                      }
+                    },
+                    "Document_Name": {
+                      "type": "Compose",
+                      "inputs": "@triggerBody()?['{FilenameWithExtension}']"
+                    }
+                  },
+                  "else": {
+                    "actions": {}
+                  },
+                  "runAfter": {
+                    "Document_Details": [
+                      "Succeeded"
+                    ]
+                  }
+                }
+              },
+              "else": {
+                "actions": {}
+              },
+              "runAfter": {
+                "POST_LLM_Analysis": [
+                  "Succeeded"
+                ]
+              }
+            }
+          },
+          "runAfter": {
+            "Init_SPL_Payload_Ary": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Update_file_properties": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+              "table": "@parameters('UPM-DHA SharePoint Library (Documents) (clr_UPSDHASharePointLibraryDocuments)')",
+              "id": "@triggerBody()?['ID']",
+              "item/Status": "Processed"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "PatchFileItem",
+              "connectionName": "shared_sharepointonline-1"
+            }
+          },
+          "runAfter": {
+            "Process_Payload": [
+              "Succeeded"
+            ]
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

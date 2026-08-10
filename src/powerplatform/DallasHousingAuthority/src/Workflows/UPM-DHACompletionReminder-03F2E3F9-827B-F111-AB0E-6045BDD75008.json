@@ -1,0 +1,386 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline-1": {
+        "api": {
+          "name": "shared_sharepointonline"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UPMDHASharePointConnection"
+        },
+        "runtimeSource": "embedded"
+      },
+      "shared_office365-1": {
+        "api": {
+          "name": "shared_office365"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UCHAVPO365OutlookConnection"
+        },
+        "runtimeSource": "embedded"
+      },
+      "shared_office365users": {
+        "api": {
+          "name": "shared_office365users"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UPMDHAO365UserConnection"
+        },
+        "runtimeSource": "embedded"
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)": {
+          "defaultValue": "https://upsidecapitalholdings.sharepoint.com/Automation/UPM-DHA/DEV",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointSite"
+          }
+        },
+        "UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)": {
+          "defaultValue": "26ac3f0d-5a5d-47cd-a6b8-1e99b9d34b87",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListIntakeForm"
+          }
+        },
+        "UPM-DHA SharePoint List (Data Filters) (clr_UPMDHASharePointListDataFilters)": {
+          "defaultValue": "6b39fb7c-9a49-4434-9f3a-8e7427ed97cd",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListDataFilters"
+          }
+        },
+        "UPM-DHA SharePoint List Item (ID | Incomplete DHA Details) (clr_UPMDHASharePointListItemIDIncompleteDHADetails)": {
+          "defaultValue": "1",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListItemIDIncompleteDHADetails"
+          }
+        },
+        "UPM-DHA Notification (From) (clr_UPMDHANotificationFrom)": {
+          "defaultValue": "chris@upsidecapitalholdings.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHANotificationFrom"
+          }
+        },
+        "UPM-DHA Solution Label (Project Name) (clr_UPMDHASolutionLabelProjectName)": {
+          "defaultValue": "DHA Tracker",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASolutionLabelProjectName"
+          }
+        },
+        "UPM-DHA Notification (Byline) (clr_UPMDHANotificationByline)": {
+          "defaultValue": "<p class=\"editor-paragraph\">Thanks,</p><p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">DHA Tracker Automation</strong></b><br><i><em class=\"editor-text-italic\">Automated Notification</em></i></p>",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHANotificationByline"
+          }
+        },
+        "UPM-DHA ResMan Web (URL) (clr_UPMDHAResManWebURL)": {
+          "defaultValue": "https://upsidepm.myresman.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHAResManWebURL"
+          }
+        },
+        "UPM-DHA Notification (DIF Reminder | To) (clr_UPMDHANotificationDIFReminderTo)": {
+          "defaultValue": "chris@upsidecapitalholdings.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHANotificationDIFReminderTo"
+          }
+        },
+        "UPM-DHA Notification (DIF Reminder | Cc) (clr_UPMDHANotificationDIFReminderCc)": {
+          "defaultValue": "chris@upsidecapitalholdings.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHANotificationDIFReminderCc"
+          }
+        }
+      },
+      "triggers": {
+        "Recurrence": {
+          "type": "Recurrence",
+          "recurrence": {
+            "frequency": "Week",
+            "interval": 1,
+            "timeZone": "Pacific Standard Time",
+            "startTime": "2026-07-09T02:00:00Z",
+            "schedule": {
+              "weekDays": [
+                "Friday"
+              ],
+              "hours": [
+                "8"
+              ]
+            }
+          },
+          "metadata": {
+            "operationMetadataId": "4e1b45a4-d6e9-4500-85ec-36c88461537b"
+          }
+        }
+      },
+      "actions": {
+        "Get_Incomplete_DHA": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+              "table": "@parameters('UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)')",
+              "$filter": "@outputs('Get_Resident_Filter')?['body/DataFilter']"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "GetItems",
+              "connectionName": "shared_sharepointonline-1"
+            }
+          },
+          "runAfter": {
+            "Get_Resident_Filter": [
+              "Succeeded"
+            ]
+          },
+          "runtimeConfiguration": {
+            "paginationPolicy": {
+              "minimumItemCount": 5000
+            }
+          },
+          "metadata": {
+            "operationMetadataId": "23fbea8f-4b56-4b3a-b5f4-2b48e7a15287"
+          }
+        },
+        "Get_Resident_Filter": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+              "table": "@parameters('UPM-DHA SharePoint List (Data Filters) (clr_UPMDHASharePointListDataFilters)')",
+              "id": "@int(parameters('UPM-DHA SharePoint List Item (ID | Incomplete DHA Details) (clr_UPMDHASharePointListItemIDIncompleteDHADetails)'))"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "GetItem",
+              "connectionName": "shared_sharepointonline-1"
+            }
+          },
+          "runAfter": {}
+        },
+        "Incomp_DHA_Filter": {
+          "type": "Query",
+          "inputs": {
+            "from": "@outputs('Get_Incomplete_DHA')?['body/value']",
+            "where": "@equals(or(\r\n  empty(string(item()?['HAPContract'])),\r\n  empty(string(item()?['WelcomeLetter'])),\r\n  empty(string(item()?['MonthlyRent'])),\r\n  empty(string(item()?['HAPPortion'])),\r\n  empty(string(item()?['CaseworkerName'])),\r\n  empty(string(item()?['CaseworkerContact'])),\r\n  empty(string(item()?['HAPContractStart'])),\r\n  empty(string(item()?['HAPContractEnd'])),\r\n  empty(string(item()?['ApplicationFee'])),\r\n  empty(string(item()?['AdministrativeFee'])),\r\n  empty(string(item()?['RiskFee'])),\r\n  empty(string(item()?['SecurityDeposit'])),\r\n  empty(string(item()?['LandlordIncentiveFee']))\r\n),true)"
+          },
+          "runAfter": {
+            "Get_Incomplete_DHA": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Send_Reminder": {
+          "type": "If",
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@empty(body('Incomp_DHA_Filter'))",
+                  "@false"
+                ]
+              }
+            ]
+          },
+          "actions": {
+            "Incomp_DHA_XML": {
+              "type": "Compose",
+              "inputs": "@xml(\r\n  json(\r\n    concat(\r\n      '{\"root\":', \r\n      string(outputs('Incomp_DHA_Array')), \r\n      '}'\r\n    )\r\n  )\r\n)",
+              "runAfter": {
+                "Incomp_DHA_Array": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Incomp_DHA_Obj": {
+              "type": "Select",
+              "inputs": {
+                "from": "@xpath(xml(outputs('Incomp_DHA_XML')), '/root/body')",
+                "select": {
+                  "Tenant Name": "@xpath(xml(item()), 'string(//TenantName)')",
+                  "Documents": "@xpath(xml(item()), '//Documents[text() != \"\"]/text()')",
+                  "Properties": "@xpath(xml(item()), '//Properties[text() != \"\"]/text()')"
+                }
+              },
+              "runAfter": {
+                "Incomp_DHA_XML": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Create_HTML_table": {
+              "type": "Table",
+              "inputs": {
+                "from": "@sort(\r\n  body('Incomp_DHA_Obj'),\r\n  'Tenant Name'\r\n)",
+                "format": "HTML",
+                "columns": [
+                  {
+                    "header": "Tenant Name",
+                    "value": "@item()?['Tenant Name']"
+                  },
+                  {
+                    "header": "Missing Files/Notes",
+                    "value": "@if(\r\n  empty(item()?['Documents']),\r\n  '-',\r\n  concat(\r\n    '<ul><li>',\r\n    join(\r\n      item()?['Documents'],\r\n      '</li><li>'\r\n    ),\r\n    '</li></ul>'\r\n  )\r\n)"
+                  },
+                  {
+                    "header": "Missing DHA Details",
+                    "value": "@if(\r\n  empty(item()?['Properties']),\r\n  '-',\r\n  concat(\r\n    '<ul><li>',\r\n    join(\r\n      item()?['Properties'],\r\n      '</li><li>'\r\n    ),\r\n    '</li></ul>'\r\n  )\r\n)"
+                  }
+                ]
+              },
+              "runAfter": {
+                "Incomp_DHA_Obj": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Fix_HTML_Tags": {
+              "type": "Compose",
+              "inputs": "@replace(\r\n  replace(\r\n    replace(\r\n      replace(\r\n        replace(\r\n          replace(\r\n            body('Create_HTML_table'),\r\n            '&lt;ul&gt;',\r\n            '<ul>'\r\n          ),\r\n          '&lt;/ul&gt;',\r\n          '</ul>'\r\n        ),\r\n        '&lt;li&gt;',\r\n        '<li>'\r\n      ),\r\n      '&lt;/li&gt;',\r\n      '</li>'\r\n    ),\r\n    '&lt;br&gt;',\r\n    '<br>'\r\n  ),\r\n  '&lt;strong&gt;',\r\n  '<strong>'\r\n)",
+              "runAfter": {
+                "Create_HTML_table": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Send_email_alert": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "emailMessage/MailboxAddress": "@parameters('UPM-DHA Notification (From) (clr_UPMDHANotificationFrom)')",
+                  "emailMessage/To": "@parameters('UPM-DHA Notification (DIF Reminder | To) (clr_UPMDHANotificationDIFReminderTo)')",
+                  "emailMessage/Subject": "@{parameters('UPM-DHA Solution Label (Project Name) (clr_UPMDHASolutionLabelProjectName)')} Weekly Reminder: @{length(body('Incomp_DHA_Obj'))} records need your action",
+                  "emailMessage/Body": "    <style>\nbody {\n    font-family: \"Segoe UI\", Arial, Helvetica, sans-serif;\n    color: #333333;\n    background: #ffffff;\n    margin: 20px;\n}\n\ndiv {\n    margin-top: 30px;\n}\n\ntable {\n    border-collapse: collapse;\n    border: 1px solid #d6d6d6;\n}\n\nth {\n    background: #2F75B5;\n    color: #ffffff;\n    font-weight: 600;\n    text-align: left;\n    padding: 10px 12px;\n    border: 1px solid #d6d6d6;\n}\n\ntd {\n    font-family: \"Segoe UI\", Arial, Helvetica, sans-serif;\n    padding: 10px 12px;\n    border: 1px solid #e2e2e2;\n    vertical-align: top;\n    line-height: 1.4;\n}\n\n/* Alternating row colors */\ntbody tr:nth-child(even) {\n    background: #f8f9fb;\n}\n\n/* Bullet lists */\ntd ul {\n    font-family: \"Segoe UI\", Arial, Helvetica, sans-serif;\n    margin: 0;\n    padding-left: 18px;\n}\n\ntd li {\n    font-family: \"Segoe UI\", Arial, Helvetica, sans-serif;\n    margin: 2px 0;\n}\n\n/* Column widths */\nth:nth-child(1),\ntd:nth-child(1) {\n    width: 150px;\n    white-space: nowrap;\n    font-weight: 600;\n}\n\nth:nth-child(2),\ntd:nth-child(2) {\n    width: 150px;\n}\n\nth:nth-child(3),\ntd:nth-child(3) {\n    width: 180px;\n}\n    </style>\n    <p>Dear @{join(\r\n  variables('aryRecipient_Names'),\r\n  '/'\r\n)},</p>\n    <p>There are <b>@{length(body('Incomp_DHA_Obj'))} resident records</b> requiring your attention in the <a href=\"@{parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')}\">DHA Intake Form</a>&nbsp;<b>(DIF)</b>.  The following table summarizes the DHA documents and information that are still incomplete. Please review the list and complete the required actions.</p>\n    <div>\n    <p><em><b>REQUIRED ACTIONS:</b></em></p>\n    <p>\n        Please review each resident listed below and complete the following, as applicable:\n        </p><ol>\n            <li>Upload any missing DHA-related documents to <a href=\"@{parameters('UPM-DHA ResMan Web (URL) (clr_UPMDHAResManWebURL)')}\">ResMan</a>.</li>\n            <li>Add any missing DHA Notes to the resident's Communications Log in ResMan, if the information is available but not documented elsewhere.<p></p></li>\n        </ol>\n    <p></p>\n    </div>\n    <div>\n    <p><em><b>WHAT HAPPENS NEXT?</b></em></p>\n    <p>DIF automatically checks ResMan for newly uploaded DHA-related documents every hour.  When a new document is detected, DIF will download the document, extract relevant DHA information using AI, and automatically populate any applicable DHA fields that are currently blank.</p>\n    <p>DIF also downloads DHA-related entries from the Communications Log and uses the information in those notes to populate missing DHA details whenever possible.</p>\n    <p>If all required DHA documents have already been uploaded and the relevant DHA Notes have been added, but some DHA details are still blank in DIF, please review the resident's record and manually enter any remaining missing information.</p>\n\n    <p><b>Note:</b> Some DHA details cannot always be extracted automatically from documents or notes. In these cases, manual entry in the DHA Intake Form may still be required.</p>\n    </div>\n<div><p class=\"editor-paragraph\">@{outputs('Fix_HTML_Tags')}</p></div>\n@{parameters('UPM-DHA Notification (Byline) (clr_UPMDHANotificationByline)')}",
+                  "emailMessage/Cc": "@parameters('UPM-DHA Notification (DIF Reminder | Cc) (clr_UPMDHANotificationDIFReminderCc)')",
+                  "emailMessage/Importance": "High"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                  "operationId": "SharedMailboxSendEmailV2",
+                  "connectionName": "shared_office365-1"
+                }
+              },
+              "runAfter": {
+                "Get_Recipients": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Incomp_DHA_Array": {
+              "type": "Select",
+              "inputs": {
+                "from": "@body('Incomp_DHA_Filter')",
+                "select": {
+                  "TenantName": "@item()?['TenantName/Value']",
+                  "Documents": "@createArray(\r\n  if(\r\n    empty(string(item()?['HAPContract'])),\r\n    'DHA Contract',\r\n    ''\r\n  ),\r\n  if(\r\n    empty(string(item()?['WelcomeLetter'])),\r\n    'Welcome Letter',\r\n    ''\r\n  ),\r\n  if(\r\n    empty(string(item()?['DHANotesPreview'])),\r\n    'DHA Notes',\r\n    ''\r\n  )\r\n)",
+                  "Properties": "@createArray(\r\n  if(\r\n    empty(string(item()?['MonthlyRent'])),\r\n    'Monthly Rent',\r\n    ''\r\n  ),\r\n  if(\r\n    empty(string(item()?['HAPPortion'])),\r\n    'HAP Portion',\r\n    ''\r\n  ),\r\n  if(\r\n    empty(string(item()?['CaseworkerName'])),\r\n    'Caseworker Name',\r\n    ''\r\n  ),\r\n  if(\r\n    empty(string(item()?['HAPContractStart'])),\r\n    'Contract Start',\r\n    ''\r\n  ),\r\n  if(\r\n    empty(string(item()?['HAPContractEnd'])),\r\n    'Contract End',\r\n    ''\r\n  ),\r\n  if(\r\n    empty(string(item()?['ApplicationFee'])),\r\n    'Application Fee',\r\n    ''\r\n  ),\r\n  if(\r\n    empty(string(item()?['AdministrativeFee'])),\r\n    'Admin Fee',\r\n    ''\r\n  ),\r\n  if(\r\n    empty(string(item()?['RiskFee'])),\r\n    'Risk Fee',\r\n    ''\r\n  ),\r\n  if(\r\n    empty(string(item()?['SecurityDeposit'])),\r\n    'Security Deposit',\r\n    ''\r\n  ),\r\n  if(\r\n    empty(string(item()?['LandlordIncentiveFee'])),\r\n    'Landlord Incentive',\r\n    ''\r\n  )\r\n)"
+                }
+              }
+            },
+            "Get_Recipients": {
+              "type": "Foreach",
+              "foreach": "@split(\r\n  replace(\r\n    parameters('UPM-DHA Notification (DIF Reminder | To) (clr_UPMDHANotificationDIFReminderTo)'),\r\n    ' ',\r\n    ''\r\n  ),\r\n  ';'\r\n)",
+              "actions": {
+                "UPN_Provided": {
+                  "type": "If",
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@empty(string(item()))",
+                          "@false"
+                        ]
+                      }
+                    ]
+                  },
+                  "actions": {
+                    "Get_user_profile": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "id": "@item()"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365users",
+                          "operationId": "UserProfile_V2",
+                          "connectionName": "shared_office365users"
+                        }
+                      }
+                    },
+                    "Add_Recipient_Name": {
+                      "type": "AppendToArrayVariable",
+                      "inputs": {
+                        "name": "aryRecipient_Names",
+                        "value": "@outputs('Get_user_profile')?['body/givenName']"
+                      },
+                      "runAfter": {
+                        "Get_user_profile": [
+                          "Succeeded"
+                        ]
+                      }
+                    }
+                  },
+                  "else": {
+                    "actions": {}
+                  }
+                }
+              },
+              "runAfter": {
+                "Fix_HTML_Tags": [
+                  "Succeeded"
+                ]
+              }
+            }
+          },
+          "else": {
+            "actions": {}
+          },
+          "runAfter": {
+            "Init_Recipient_Names": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Init_Recipient_Names": {
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "aryRecipient_Names",
+                "type": "array"
+              }
+            ]
+          },
+          "runAfter": {
+            "Incomp_DHA_Filter": [
+              "Succeeded"
+            ]
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

@@ -1,0 +1,11 @@
+<environmentvariabledefinition schemaname="clr_UPMDHAResManAPIFilterModifiedSince">
+  <defaultvalue>2024-01-01</defaultvalue>
+  <displayname default="UPM-DHA ResMan API (Filter | Modified Since)">
+    <label description="UPM-DHA ResMan API (Filter | Modified Since)" languagecode="1033" />
+  </displayname>
+  <introducedversion>0.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

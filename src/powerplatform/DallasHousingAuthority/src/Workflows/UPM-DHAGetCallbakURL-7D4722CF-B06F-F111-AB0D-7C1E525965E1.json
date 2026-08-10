@@ -1,0 +1,201 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_flowmanagement-1": {
+        "api": {
+          "name": "shared_flowmanagement"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UPMDHAPAMConnection"
+        },
+        "runtimeSource": "embedded"
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "UPM-DHA Environment (Name) (clr_UPMDHAEnvironmentName)": {
+          "defaultValue": "Upside Capital DEV",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHAEnvironmentName"
+          }
+        }
+      },
+      "triggers": {
+        "manual": {
+          "type": "Request",
+          "kind": "Button",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "title": "Flow Name",
+                  "type": "string",
+                  "x-ms-dynamically-added": true,
+                  "description": "Please enter your input",
+                  "x-ms-content-hint": "TEXT"
+                }
+              },
+              "required": [
+                "text"
+              ]
+            }
+          },
+          "metadata": {
+            "operationMetadataId": "098c014f-1ebe-4f04-a7ad-ac86de4968d0"
+          }
+        }
+      },
+      "actions": {
+        "Respond_to_flow": {
+          "type": "Response",
+          "kind": "PowerApp",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "callback_url": {
+                  "title": "Callback URL",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                }
+              },
+              "additionalProperties": {}
+            },
+            "statusCode": 200,
+            "body": {
+              "callback_url": "@{outputs('List_Callback_URL')?['body/response/value']}"
+            }
+          },
+          "runAfter": {
+            "Get_Cloud_Flow": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "b8d50668-d6c6-40a7-9899-c824a599a81d"
+          }
+        },
+        "Get_Environment": {
+          "type": "Scope",
+          "actions": {
+            "List_Environments": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_flowmanagement",
+                  "operationId": "ListUserEnvironments",
+                  "connectionName": "shared_flowmanagement-1"
+                }
+              }
+            },
+            "Filter_Environments": {
+              "type": "Query",
+              "inputs": {
+                "from": "@outputs('List_Environments')?['body/value']",
+                "where": "@equals(item()?['properties/displayName'],parameters('UPM-DHA Environment (Name) (clr_UPMDHAEnvironmentName)'))"
+              },
+              "runAfter": {
+                "List_Environments": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Target_Environment": {
+              "type": "Compose",
+              "inputs": "@body('Filter_Environments')[0]['name']",
+              "runAfter": {
+                "Filter_Environments": [
+                  "Succeeded"
+                ]
+              }
+            }
+          },
+          "runAfter": {}
+        },
+        "Get_Cloud_Flow": {
+          "type": "Scope",
+          "actions": {
+            "Filter_Cloud_Flows": {
+              "type": "Query",
+              "inputs": {
+                "from": "@outputs('List_Flows_as_Admin')?['body/value']",
+                "where": "@equals(item()?['properties/displayName'],trim(triggerBody()?['text']))"
+              },
+              "runAfter": {
+                "List_Flows_as_Admin": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Target_Cloud_Flow": {
+              "type": "Compose",
+              "inputs": "@body('Filter_Cloud_Flows')[0]['name']",
+              "runAfter": {
+                "Filter_Cloud_Flows": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "List_Callback_URL": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "environmentName": "@outputs('Target_Environment')",
+                  "flowName": "@outputs('Target_Cloud_Flow')"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_flowmanagement",
+                  "operationId": "ListCallbackUrl",
+                  "connectionName": "shared_flowmanagement-1"
+                }
+              },
+              "runAfter": {
+                "Target_Cloud_Flow": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "List_Flows_as_Admin": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "environmentName": "@outputs('Target_Environment')"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_flowmanagement",
+                  "operationId": "ListFlowsInEnvironment_V2",
+                  "connectionName": "shared_flowmanagement-1"
+                }
+              },
+              "runtimeConfiguration": {
+                "paginationPolicy": {
+                  "minimumItemCount": 5000
+                }
+              }
+            }
+          },
+          "runAfter": {
+            "Get_Environment": [
+              "Succeeded"
+            ]
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

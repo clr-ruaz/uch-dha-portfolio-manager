@@ -1,0 +1,249 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_keyvault": {
+        "api": {
+          "name": "shared_keyvault"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UPMDHAAzureVaultConnection"
+        },
+        "runtimeSource": "embedded"
+      },
+      "shared_sharepointonline-1": {
+        "api": {
+          "name": "shared_sharepointonline"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UPMDHASharePointConnection"
+        },
+        "runtimeSource": "embedded"
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "UPM-DHA ResMan API (Secret Name) (clr_UPMDHAResManAPISecretName)": {
+          "defaultValue": "ResMan-Authorization-PRD",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHAResManAPISecretName"
+          }
+        },
+        "UPM-DHA ResMan API (Account ID) (clr_UPMDHAResManAPIAccountID)": {
+          "defaultValue": "2012",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHAResManAPIAccountID"
+          }
+        },
+        "UPM-DHA ResMan API (Base URL) (clr_UPMDHAResManAPIBaseURL)": {
+          "defaultValue": "https://partners-api.myresman.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHAResManAPIBaseURL"
+          }
+        },
+        "UPM-DHA SharePoint List Item (ID | GPT Prompts) (clr_UPMDHASharePointListItemIDGPTPrompts)": {
+          "defaultValue": "3",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListItemIDGPTPrompts"
+          }
+        },
+        "UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)": {
+          "defaultValue": "https://upsidecapitalholdings.sharepoint.com/Automation/UPM-DHA/DEV",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointSite"
+          }
+        },
+        "UPM-DHA SharePoint List (GPT Prompts) (clr_UPMDHASharePointListGPTPrompts)": {
+          "defaultValue": "add0956c-c84c-4e31-aeb8-5921666e7aaf",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListGPTPrompts"
+          }
+        }
+      },
+      "triggers": {
+        "manual": {
+          "type": "Request",
+          "kind": "Http",
+          "inputs": {
+            "triggerAuthenticationType": "Tenant"
+          },
+          "metadata": {
+            "operationMetadataId": "5ff5c904-7246-44c9-818d-060316716053"
+          }
+        }
+      },
+      "actions": {
+        "Response": {
+          "type": "Response",
+          "kind": "Http",
+          "inputs": {
+            "statusCode": 200,
+            "body": {
+              "Status": "Success",
+              "Response": "@body('POST_LLM_Analysis')?['Response']"
+            }
+          },
+          "runAfter": {
+            "Analyze_Data": [
+              "SUCCEEDED"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "e420d5bd-dd3c-4ba2-8977-e37fc137bc53"
+          }
+        },
+        "ResMan_Data": {
+          "type": "Scope",
+          "actions": {
+            "Get_ResMan_Secret": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "secretName": "@parameters('UPM-DHA ResMan API (Secret Name) (clr_UPMDHAResManAPISecretName)')"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_keyvault",
+                  "operationId": "GetSecret",
+                  "connectionName": "shared_keyvault"
+                }
+              }
+            },
+            "Get_Receivebles": {
+              "type": "Http",
+              "inputs": {
+                "uri": "@{parameters('UPM-DHA ResMan API (Base URL) (clr_UPMDHAResManAPIBaseURL)')}/Transactions/Receivables?propertyId=@{triggerBody()?['propertyId']}&date=@{formatDateTime(\n  utcNow(),\n  'yyyy-MM-dd'\n)}",
+                "method": "GET",
+                "headers": {
+                  "ResMan-Account-Id": "@{parameters('UPM-DHA ResMan API (Account ID) (clr_UPMDHAResManAPIAccountID)')}",
+                  "Accept": "application/json",
+                  "Content-Type": "application/json",
+                  "Authorization": "Basic @{outputs('Get_ResMan_Secret')?['body/value']}"
+                }
+              },
+              "runAfter": {
+                "Get_ResMan_Secret": [
+                  "SUCCEEDED"
+                ]
+              },
+              "runtimeConfiguration": {
+                "contentTransfer": {
+                  "transferMode": "Chunked"
+                }
+              }
+            },
+            "Matching_Resident": {
+              "type": "Query",
+              "inputs": {
+                "from": "@body('Get_Receivebles')?['accounts']",
+                "where": "@equals(item()?['billingAccountId'],triggerBody()?['billingAccountId'])"
+              },
+              "runAfter": {
+                "Get_Receivebles": [
+                  "SUCCEEDED"
+                ]
+              }
+            }
+          },
+          "runAfter": {}
+        },
+        "Analyze_Data": {
+          "type": "Scope",
+          "actions": {
+            "Get_System_Prompt": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                  "table": "@parameters('UPM-DHA SharePoint List (GPT Prompts) (clr_UPMDHASharePointListGPTPrompts)')",
+                  "id": "@int(string(parameters('UPM-DHA SharePoint List Item (ID | GPT Prompts) (clr_UPMDHASharePointListItemIDGPTPrompts)')))"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "GetItem",
+                  "connectionName": "shared_sharepointonline-1"
+                }
+              }
+            },
+            "LLM_Analysis_URL": {
+              "type": "Workflow",
+              "inputs": {
+                "host": {
+                  "workflowReferenceName": "7d4722cf-b06f-f111-ab0d-7c1e525965e1"
+                },
+                "body": {
+                  "text": "UPM-DHA LLM Analysis Endpoint"
+                }
+              },
+              "runAfter": {
+                "Get_System_Prompt": [
+                  "SUCCEEDED"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "aacd64e8-8eaa-41ef-9702-6cee1313472d"
+              }
+            },
+            "POST_LLM_Analysis": {
+              "type": "Http",
+              "inputs": {
+                "uri": "@body('LLM_Analysis_URL')?['callback_url']",
+                "method": "POST",
+                "body": {
+                  "System Message": "@outputs('Get_System_Prompt')?['body/SystemPrompt']",
+                  "User Message": "@string(body('Matching_Resident'))",
+                  "JSON Format": false
+                }
+              },
+              "runAfter": {
+                "LLM_Analysis_URL": [
+                  "SUCCEEDED"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "f2dfc5d8-7fee-4450-ba1c-0517b21c3e2f"
+              }
+            }
+          },
+          "runAfter": {
+            "ResMan_Data": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Fail": {
+          "type": "Response",
+          "kind": "Http",
+          "inputs": {
+            "statusCode": 200,
+            "body": {
+              "Status": "Failed",
+              "Response": "There was an error completing your request.  Please try again after a minute."
+            }
+          },
+          "runAfter": {
+            "Analyze_Data": [
+              "FAILED"
+            ]
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

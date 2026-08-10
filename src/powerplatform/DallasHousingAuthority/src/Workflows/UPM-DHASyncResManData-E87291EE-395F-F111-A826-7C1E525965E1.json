@@ -1,0 +1,1413 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_keyvault-1": {
+        "api": {
+          "name": "shared_keyvault"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UPMDHAAzureVaultConnection"
+        },
+        "runtimeSource": "embedded"
+      },
+      "shared_sharepointonline-1": {
+        "api": {
+          "name": "shared_sharepointonline"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UPMDHASharePointConnection"
+        },
+        "runtimeSource": "embedded"
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "UPM-DHA ResMan API (Secret Name) (clr_UPMDHAResManAPISecretName)": {
+          "defaultValue": "ResMan-Authorization-PRD",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHAResManAPISecretName"
+          }
+        },
+        "UPM-DHA ResMan API (Account ID) (clr_UPMDHAResManAPIAccountID)": {
+          "defaultValue": "2012",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHAResManAPIAccountID"
+          }
+        },
+        "UPM-DHA ResMan API (Base URL) (clr_UPMDHAResManAPIBaseURL)": {
+          "defaultValue": "https://partners-api.myresman.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHAResManAPIBaseURL"
+          }
+        },
+        "UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)": {
+          "defaultValue": "https://upsidecapitalholdings.sharepoint.com/Automation/UPM-DHA/DEV",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointSite"
+          }
+        },
+        "UPM-DHA SharePoint List (Properties) (clr_UPMDHASharePointListProperties)": {
+          "defaultValue": "7032a819-56eb-48db-8468-e4e41f124840",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListProperties"
+          }
+        },
+        "UPM-DHA SharePoint List (Units) (clr_UPMDHASharePointListUnits)": {
+          "defaultValue": "fe57a20e-ec6a-409a-ad4f-f05050faeb0f",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListUnits"
+          }
+        },
+        "UPM-DHA ResMan API (Filter | Modified Since) (clr_UPMDHAResManAPIFilterModifiedSince)": {
+          "defaultValue": "2024-01-01",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHAResManAPIFilterModifiedSince"
+          }
+        },
+        "UPM-DHA SharePoint List (Leases) (clr_UPMDHASharePointListLeases)": {
+          "defaultValue": "c389d9a2-ca8f-4e09-99c7-1f492ad65ac5",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListLeases"
+          }
+        },
+        "UPM-DHA SharePoint List (People) (clr_UPMDHASharePointListPeople)": {
+          "defaultValue": "a41d99ea-6762-48a2-8391-076f8df64136",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListPeople"
+          }
+        }
+      },
+      "triggers": {
+        "Recurrence": {
+          "type": "Recurrence",
+          "recurrence": {
+            "interval": 1,
+            "frequency": "Day",
+            "timeZone": "Pacific Standard Time",
+            "schedule": {
+              "hours": [
+                "6",
+                "12",
+                "18"
+              ]
+            }
+          }
+        }
+      },
+      "actions": {
+        "Get_ResMan_Secret": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "secretName": "@parameters('UPM-DHA ResMan API (Secret Name) (clr_UPMDHAResManAPISecretName)')"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_keyvault",
+              "operationId": "GetSecret",
+              "connectionName": "shared_keyvault-1"
+            }
+          },
+          "runAfter": {}
+        },
+        "Sync_Properties": {
+          "type": "Scope",
+          "actions": {
+            "Get_SPL_Properties": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                  "table": "@parameters('UPM-DHA SharePoint List (Properties) (clr_UPMDHASharePointListProperties)')"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "GetItems",
+                  "connectionName": "shared_sharepointonline-1"
+                }
+              }
+            },
+            "Get_RSM_Properties": {
+              "type": "Http",
+              "inputs": {
+                "uri": "@{parameters('UPM-DHA ResMan API (Base URL) (clr_UPMDHAResManAPIBaseURL)')}/Properties",
+                "method": "GET",
+                "headers": {
+                  "ResMan-Account-Id": "@{parameters('UPM-DHA ResMan API (Account ID) (clr_UPMDHAResManAPIAccountID)')}",
+                  "Accept": "application/json",
+                  "Content-Type": "application/json",
+                  "Authorization": "Basic @{outputs('Get_ResMan_Secret')?['body/value']}"
+                },
+                "retryPolicy": {
+                  "type": "fixed",
+                  "count": 3,
+                  "interval": "PT20S"
+                }
+              },
+              "runAfter": {
+                "SPL_Properties_ID": [
+                  "Succeeded"
+                ]
+              },
+              "runtimeConfiguration": {
+                "contentTransfer": {
+                  "transferMode": "Chunked"
+                }
+              }
+            },
+            "RSM_Properties": {
+              "type": "Select",
+              "description": "ResMan propeties",
+              "inputs": {
+                "from": "@body('Get_RSM_Properties')?['properties']",
+                "select": {
+                  "name": "@item()?['name']",
+                  "propertyId": "@item()?['propertyId']"
+                }
+              },
+              "runAfter": {
+                "Get_RSM_Properties": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "SPL_Properties": {
+              "type": "Select",
+              "description": "SharePoint properties",
+              "inputs": {
+                "from": "@outputs('Get_SPL_Properties')?['body/value']",
+                "select": {
+                  "name": "@item()?['Title']",
+                  "propertyId": "@item()?['propertyId']"
+                }
+              },
+              "runAfter": {
+                "Get_SPL_Properties": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "SPL_Properties_ID": {
+              "type": "Select",
+              "inputs": {
+                "from": "@outputs('Get_SPL_Properties')?['body/value']",
+                "select": "@item()?['propertyId']"
+              },
+              "runAfter": {
+                "SPL_Properties": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "RSM_Properties_ID": {
+              "type": "Select",
+              "inputs": {
+                "from": "@body('Get_RSM_Properties')?['properties']",
+                "select": "@item()?['propertyId']"
+              },
+              "runAfter": {
+                "RSM_Properties": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "NEW_RSM_Properties": {
+              "type": "Query",
+              "description": "New ResMan properties that need added to SharePoint",
+              "inputs": {
+                "from": "@body('RSM_Properties')",
+                "where": "@not(contains(body('SPL_Properties_ID'),item()?['propertyId']))"
+              },
+              "runAfter": {
+                "CMN_Properties_ID": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "UPD_RSM_Properties": {
+              "type": "Query",
+              "description": "Updated ResMan properties that need updated in SharePoint too",
+              "inputs": {
+                "from": "@body('RSM_Properties')",
+                "where": "@equals(and(\r\n  contains(\r\n    body('SPL_Properties_ID'),\r\n    item()?['propertyId']\r\n  ),\r\n  not(\r\n    contains(\r\n      body('CMN_Properties_ID'),\r\n      item()?['propertyId']\r\n    )\r\n  )\r\n),true)"
+              },
+              "runAfter": {
+                "NEW_RSM_Properties": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "CMN_Properties": {
+              "type": "Compose",
+              "description": "Properties common in ResMan and SharePoint",
+              "inputs": "@intersection(\r\n  body('RSM_Properties'),\r\n  body('SPL_Properties')\r\n)",
+              "runAfter": {
+                "RSM_Properties_ID": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "CMN_Properties_ID": {
+              "type": "Select",
+              "inputs": {
+                "from": "@outputs('CMN_Properties')",
+                "select": "@item()?['propertyId']"
+              },
+              "runAfter": {
+                "CMN_Properties": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "DEL_SPL_Properties": {
+              "type": "Query",
+              "description": "Existing SharePoint properties that need to be deleted since they don't exist in ResMan",
+              "inputs": {
+                "from": "@body('SPL_Properties')",
+                "where": "@not(contains(body('RSM_Properties_ID'),item()?['propertyId']))"
+              },
+              "runAfter": {
+                "UPD_RSM_Properties": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "NEW_Properties": {
+              "type": "Foreach",
+              "foreach": "@body('NEW_RSM_Properties')",
+              "actions": {
+                "Create_SPL_Property": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                      "table": "@parameters('UPM-DHA SharePoint List (Properties) (clr_UPMDHASharePointListProperties)')",
+                      "item/Title": "@items('NEW_Properties')?['name']",
+                      "item/propertyId": "@items('NEW_Properties')?['propertyId']"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "operationId": "PostItem",
+                      "connectionName": "shared_sharepointonline-1"
+                    }
+                  }
+                }
+              },
+              "runAfter": {
+                "DEL_SPL_Properties": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "UPD_Properties": {
+              "type": "Foreach",
+              "foreach": "@body('UPD_RSM_Properties')",
+              "actions": {
+                "Outdated_SPL_Prop": {
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@outputs('Get_SPL_Properties')?['body/value']",
+                    "where": "@equals(item()?['propertyId'],items('UPD_Properties')?['propertyId'])"
+                  }
+                },
+                "UPD_SPL_Property": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                      "table": "@parameters('UPM-DHA SharePoint List (Properties) (clr_UPMDHASharePointListProperties)')",
+                      "id": "@first(body('Outdated_SPL_Prop'))?['propertyId']",
+                      "item/Title": "@items('UPD_Properties')?['name']"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "operationId": "PatchItem",
+                      "connectionName": "shared_sharepointonline-1"
+                    }
+                  },
+                  "runAfter": {
+                    "Outdated_SPL_Prop": [
+                      "Succeeded"
+                    ]
+                  }
+                }
+              },
+              "runAfter": {
+                "NEW_Properties": [
+                  "Succeeded"
+                ]
+              }
+            }
+          },
+          "runAfter": {
+            "Get_ResMan_Secret": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Sync_Units": {
+          "type": "Scope",
+          "actions": {
+            "Get_UPD_SPL_Props": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                  "table": "@parameters('UPM-DHA SharePoint List (Properties) (clr_UPMDHASharePointListProperties)')"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "GetItems",
+                  "connectionName": "shared_sharepointonline-1"
+                }
+              }
+            },
+            "Each_SPL_Prprty": {
+              "type": "Foreach",
+              "foreach": "@outputs('Get_UPD_SPL_Props')?['body/value']",
+              "actions": {
+                "Get_RSM_Units": {
+                  "type": "Http",
+                  "inputs": {
+                    "uri": "@{parameters('UPM-DHA ResMan API (Base URL) (clr_UPMDHAResManAPIBaseURL)')}/Units?propertyId=@{items('Each_SPL_Prprty')?['propertyId']}",
+                    "method": "GET",
+                    "headers": {
+                      "ResMan-Account-Id": "@{parameters('UPM-DHA ResMan API (Account ID) (clr_UPMDHAResManAPIAccountID)')}",
+                      "Accept": "application/json",
+                      "Content-Type": "application/json",
+                      "Authorization": "Basic @{outputs('Get_ResMan_Secret')?['body/value']}"
+                    },
+                    "retryPolicy": {
+                      "type": "fixed",
+                      "count": 3,
+                      "interval": "PT20S"
+                    }
+                  },
+                  "runtimeConfiguration": {
+                    "contentTransfer": {
+                      "transferMode": "Chunked"
+                    }
+                  }
+                },
+                "RSM_Units": {
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@body('Get_RSM_Units')?['units']",
+                    "select": {
+                      "unitId": "@item()?['unitId']",
+                      "unitNumber": "@item()?['unitNumber']",
+                      "marketRent": "@item()?['marketRent']"
+                    }
+                  },
+                  "runAfter": {
+                    "Get_RSM_Units": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "RSM_Units_ID": {
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@body('Get_RSM_Units')?['units']",
+                    "select": "@item()?['unitId']"
+                  },
+                  "runAfter": {
+                    "RSM_Units": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Filter_SPL_Units": {
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@body('Master_SPL_Units')",
+                    "where": "@equals(item()?['splPropertyId'],items('Each_SPL_Prprty')?['ID'])"
+                  },
+                  "runAfter": {
+                    "RSM_Units_ID": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "SPL_Units_ID": {
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@body('Filter_SPL_Units')",
+                    "select": "@item()?['unitId']"
+                  },
+                  "runAfter": {
+                    "SPL_Units": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "SPL_Units": {
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@body('Filter_SPL_Units')",
+                    "select": {
+                      "unitId": "@item()?['unitId']",
+                      "unitNumber": "@item()?['unitNumber']",
+                      "marketRent": "@item()?['marketRent']"
+                    }
+                  },
+                  "runAfter": {
+                    "Filter_SPL_Units": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Common_Units": {
+                  "type": "Compose",
+                  "inputs": "@intersection(\r\n  body('RSM_Units'),\r\n  body('SPL_Units')\r\n)",
+                  "runAfter": {
+                    "SPL_Units_ID": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Common_Units_ID": {
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@outputs('Common_Units')",
+                    "select": "@item()?['unitId']"
+                  },
+                  "runAfter": {
+                    "Common_Units": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "NEW_RSM_Units": {
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@body('RSM_Units')",
+                    "where": "@not(contains(body('SPL_Units_ID'),item()?['unitId']))"
+                  },
+                  "runAfter": {
+                    "Common_Units_ID": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "UPD_RSM_Units": {
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@body('RSM_Units')",
+                    "where": "@equals(and(\r\n  contains(\r\n    body('SPL_Units_ID'),\r\n    item()?['unitId']\r\n  ),\r\n  not(\r\n    contains(\r\n      body('Common_Units_ID'),\r\n      item()?['unitId']\r\n    )\r\n  )\r\n),true)"
+                  },
+                  "runAfter": {
+                    "NEW_RSM_Units": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "DEL_SPL_Units": {
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@body('SPL_Units')",
+                    "where": "@not(contains(body('RSM_Units_ID'),item()?['unitId']))"
+                  },
+                  "runAfter": {
+                    "UPD_RSM_Units": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "NEW_Units": {
+                  "type": "Foreach",
+                  "foreach": "@body('NEW_RSM_Units')",
+                  "actions": {
+                    "Create_SPL_Unit": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                          "table": "@parameters('UPM-DHA SharePoint List (Units) (clr_UPMDHASharePointListUnits)')",
+                          "item/Title": "@items('NEW_Units')?['unitNumber']",
+                          "item/UnitID": "@items('NEW_Units')?['unitId']",
+                          "item/MarketRent": "@items('NEW_Units')?['marketRent']",
+                          "item/Property/Id": "@items('Each_SPL_Prprty')?['ID']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "operationId": "PostItem",
+                          "connectionName": "shared_sharepointonline-1"
+                        }
+                      }
+                    }
+                  },
+                  "runAfter": {
+                    "DEL_SPL_Units": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "UPDATE_Units": {
+                  "type": "Foreach",
+                  "foreach": "@body('UPD_RSM_Units')",
+                  "actions": {
+                    "Outdated_SPL_Units": {
+                      "type": "Query",
+                      "inputs": {
+                        "from": "@body('Filter_SPL_Units')",
+                        "where": "@equals(item()?['unitId'],items('UPDATE_Units')?['unitId'])"
+                      }
+                    },
+                    "Update_SPL_Unit": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                          "table": "@parameters('UPM-DHA SharePoint List (Units) (clr_UPMDHASharePointListUnits)')",
+                          "id": "@first(body('Outdated_SPL_Units'))?['splUnitId']",
+                          "item/Title": "@items('UPDATE_Units')?['unitNumber']",
+                          "item/MarketRent": "@items('UPDATE_Units')?['marketRent']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "operationId": "PatchItem",
+                          "connectionName": "shared_sharepointonline-1"
+                        }
+                      },
+                      "runAfter": {
+                        "Outdated_SPL_Units": [
+                          "Succeeded"
+                        ]
+                      }
+                    }
+                  },
+                  "runAfter": {
+                    "NEW_Units": [
+                      "Succeeded"
+                    ]
+                  }
+                }
+              },
+              "runAfter": {
+                "Master_SPL_Units": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Get_SPL_Units": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                  "table": "@parameters('UPM-DHA SharePoint List (Units) (clr_UPMDHASharePointListUnits)')"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "GetItems",
+                  "connectionName": "shared_sharepointonline-1"
+                }
+              },
+              "runAfter": {
+                "Get_UPD_SPL_Props": [
+                  "Succeeded"
+                ]
+              },
+              "runtimeConfiguration": {
+                "paginationPolicy": {
+                  "minimumItemCount": 5000
+                }
+              }
+            },
+            "Master_SPL_Units": {
+              "type": "Select",
+              "inputs": {
+                "from": "@outputs('Get_SPL_Units')?['body/value']",
+                "select": {
+                  "unitId": "@item()?['UnitID']",
+                  "unitNumber": "@item()?['Title']",
+                  "marketRent": "@item()?['MarketRent']",
+                  "splPropertyId": "@item()?['Property/Id']",
+                  "splUnitId": "@item()?['ID']"
+                }
+              },
+              "runAfter": {
+                "Get_SPL_Units": [
+                  "Succeeded"
+                ]
+              }
+            }
+          },
+          "runAfter": {
+            "Sync_Properties": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Sync_Leases": {
+          "type": "Scope",
+          "actions": {
+            "Each_SPL_Proprty": {
+              "type": "Foreach",
+              "foreach": "@outputs('Get_UPD_SPL_Props')?['body/value']",
+              "actions": {
+                "Get_RSM_Leases": {
+                  "type": "Http",
+                  "inputs": {
+                    "uri": "@{parameters('UPM-DHA ResMan API (Base URL) (clr_UPMDHAResManAPIBaseURL)')}/Leasing/Leases?propertyId=@{items('Each_SPL_Proprty')?['propertyId']}&modifiedSince=@{parameters('UPM-DHA ResMan API (Filter | Modified Since) (clr_UPMDHAResManAPIFilterModifiedSince)')}&includeLeaseHistory=false",
+                    "method": "GET",
+                    "headers": {
+                      "ResMan-Account-Id": "@{parameters('UPM-DHA ResMan API (Account ID) (clr_UPMDHAResManAPIAccountID)')}",
+                      "Accept": "application/json",
+                      "Content-Type": "application/json",
+                      "Authorization": "Basic @{outputs('Get_ResMan_Secret')?['body/value']}"
+                    },
+                    "retryPolicy": {
+                      "type": "fixed",
+                      "count": 3,
+                      "interval": "PT20S"
+                    }
+                  },
+                  "runtimeConfiguration": {
+                    "contentTransfer": {
+                      "transferMode": "Chunked"
+                    }
+                  }
+                },
+                "RSM_Leases": {
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@body('Get_RSM_Leases')?['leases']",
+                    "select": {
+                      "leaseId": "@item()?['leaseId']",
+                      "leaseStatus": "@item()?['leaseStatus']",
+                      "leaseStartDate": "@item()?['leaseStartDate']",
+                      "leaseEndDate": "@item()?['leaseEndDate']",
+                      "applicationDate": "@item()?['applicationDate']",
+                      "approvalDate": "@item()?['approvalDate']",
+                      "denialDate": "@item()?['denialDate']",
+                      "cancellationDate": "@item()?['cancellationDate']",
+                      "leaseSignedDate": "@item()?['leaseSignedDate']",
+                      "scheduledMoveInDate": "@item()?['scheduledMoveInDate']",
+                      "moveInDate": "@item()?['moveInDate']",
+                      "noticeToVacateDate": "@item()?['noticeToVacateDate']",
+                      "scheduledMoveOutDate": "@item()?['scheduledMoveOutDate']",
+                      "moveOutDate": "@item()?['moveOutDate']",
+                      "moveOutReconciliationDate": "@item()?['moveOutReconciliationDate']",
+                      "transferredTo": "@item()?['transferredTo']",
+                      "lastModified": "@formatDateTime(\r\n  item()?['lastModified'],\r\n  'yyyy-MM-ddTHH:mm:ssZ'\r\n)",
+                      "propertyId": "@item()?['propertyId']",
+                      "unitId": "@item()?['unitId']",
+                      "billingAccountId": "@item()?['billingAccountId']"
+                    }
+                  },
+                  "runAfter": {
+                    "Get_RSM_Leases": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "New_RSM_Leases": {
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@body('RSM_Leases')",
+                    "where": "@not(contains(body('SPL_Leases_ID'),item()?['leaseId']))"
+                  },
+                  "runAfter": {
+                    "Common_Leases_ID": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "NEW_Leases": {
+                  "type": "Foreach",
+                  "foreach": "@body('New_RSM_Leases')",
+                  "actions": {
+                    "Create_SPL_Lease": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                          "table": "@parameters('UPM-DHA SharePoint List (Leases) (clr_UPMDHASharePointListLeases)')",
+                          "item/Title": "@items('NEW_Leases')?['leaseId']",
+                          "item/billingAccountId": "@items('NEW_Leases')?['billingAccountId']",
+                          "item/leaseStatus": "@items('NEW_Leases')?['leaseStatus']",
+                          "item/leaseStartDate": "@items('NEW_Leases')?['leaseStartDate']",
+                          "item/leaseEndDate": "@items('NEW_Leases')?['leaseEndDate']",
+                          "item/applicationDate": "@items('NEW_Leases')?['applicationDate']",
+                          "item/approvalDate": "@items('NEW_Leases')?['approvalDate']",
+                          "item/denialDate": "@items('NEW_Leases')?['denialDate']",
+                          "item/cancellationDate": "@items('NEW_Leases')?['cancellationDate']",
+                          "item/leaseSignedDate": "@items('NEW_Leases')?['leaseSignedDate']",
+                          "item/scheduledMoveInDate": "@items('NEW_Leases')?['scheduledMoveInDate']",
+                          "item/moveInDate": "@items('NEW_Leases')?['moveInDate']",
+                          "item/noticeToVacateDate": "@items('NEW_Leases')?['noticeToVacateDate']",
+                          "item/scheduledMoveOutDate": "@items('NEW_Leases')?['scheduledMoveOutDate']",
+                          "item/moveOutDate": "@items('NEW_Leases')?['moveOutDate']",
+                          "item/moveOutReconciliationDate": "@items('NEW_Leases')?['moveOutReconciliationDate']",
+                          "item/transferredTo": "@items('NEW_Leases')?['transferredTo']",
+                          "item/lastModified": "@items('NEW_Leases')?['lastModified']",
+                          "item/Unit/Id": "@first(\n  xpath(\n    xml(outputs('SPL_Units_XML')),\n    concat(\n      '//value[UnitID=\"',\n      items('NEW_Leases')?['unitId'],\n      '\"]/ID/text()'\n    )\n  )\n)",
+                          "item/Property/Id": "@first(\n  xpath(\n    xml(outputs('SPL_Properties_XML')),\n    concat(\n      '//value[propertyId=\"',\n      items('NEW_Leases')?['propertyId'],\n      '\"]/ID/text()'\n    )\n  )\n)"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "operationId": "PostItem",
+                          "connectionName": "shared_sharepointonline-1"
+                        }
+                      }
+                    }
+                  },
+                  "runAfter": {
+                    "DEL_SPL_Leases": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "RSM_Leases_ID": {
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@body('RSM_Leases')",
+                    "select": "@item()?['leaseId']"
+                  },
+                  "runAfter": {
+                    "RSM_Leases": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "SPL_Leases": {
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@body('Master_SPL_Leases')",
+                    "where": "@equals(items('Each_SPL_Proprty')?['propertyId'],item()?['propertyId'])"
+                  },
+                  "runAfter": {
+                    "RSM_Leases_ID": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "SPL_Leases_ID": {
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@body('SPL_Leases')",
+                    "select": "@item()?['leaseId']"
+                  },
+                  "runAfter": {
+                    "SPL_Leases": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Common_Leases": {
+                  "type": "Compose",
+                  "inputs": "@intersection(\r\n  body('RSM_Leases'),\r\n  body('SPL_Leases')\r\n)",
+                  "runAfter": {
+                    "SPL_Leases_ID": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Common_Leases_ID": {
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@outputs('Common_Leases')",
+                    "select": "@item()?['leaseId']"
+                  },
+                  "runAfter": {
+                    "Common_Leases": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "UPD_RSM_Leases": {
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@body('RSM_Leases')",
+                    "where": "@equals(and(\r\n  contains(\r\n    body('SPL_Leases_ID'),\r\n    item()?['leaseId']\r\n  ),\r\n  not(\r\n    contains(\r\n      body('Common_Leases_ID'),\r\n      item()?['leaseId']\r\n    )\r\n  )\r\n),true)"
+                  },
+                  "runAfter": {
+                    "New_RSM_Leases": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "DEL_SPL_Leases": {
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@body('SPL_Leases')",
+                    "where": "@not(contains(body('RSM_Leases_ID'),item()?['leaseId']))"
+                  },
+                  "runAfter": {
+                    "UPD_RSM_Leases": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "UPDATE_Leases": {
+                  "type": "Foreach",
+                  "foreach": "@body('UPD_RSM_Leases')",
+                  "actions": {
+                    "Update_SPL_Lease": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                          "table": "@parameters('UPM-DHA SharePoint List (Leases) (clr_UPMDHASharePointListLeases)')",
+                          "id": "@first(\n  xpath(\n    xml(outputs('SPL_Leases_XML')),\n    concat(\n      '//body[leaseId=\"',\n      items('UPDATE_Leases')?['leaseId'],\n      '\"]/ID/text()'\n    )\n  )\n)",
+                          "item/billingAccountId": "@items('UPDATE_Leases')?['billingAccountId']",
+                          "item/leaseStatus": "@items('UPDATE_Leases')?['leaseStatus']",
+                          "item/leaseStartDate": "@items('UPDATE_Leases')?['leaseStartDate']",
+                          "item/leaseEndDate": "@items('UPDATE_Leases')?['leaseEndDate']",
+                          "item/applicationDate": "@items('UPDATE_Leases')?['applicationDate']",
+                          "item/approvalDate": "@items('UPDATE_Leases')?['approvalDate']",
+                          "item/denialDate": "@items('UPDATE_Leases')?['denialDate']",
+                          "item/cancellationDate": "@items('UPDATE_Leases')?['cancellationDate']",
+                          "item/leaseSignedDate": "@items('UPDATE_Leases')?['leaseSignedDate']",
+                          "item/scheduledMoveInDate": "@items('UPDATE_Leases')?['scheduledMoveInDate']",
+                          "item/moveInDate": "@items('UPDATE_Leases')?['moveInDate']",
+                          "item/noticeToVacateDate": "@items('UPDATE_Leases')?['noticeToVacateDate']",
+                          "item/scheduledMoveOutDate": "@items('UPDATE_Leases')?['scheduledMoveOutDate']",
+                          "item/moveOutDate": "@items('UPDATE_Leases')?['moveOutDate']",
+                          "item/moveOutReconciliationDate": "@items('UPDATE_Leases')?['moveOutReconciliationDate']",
+                          "item/transferredTo": "@items('UPDATE_Leases')?['transferredTo']",
+                          "item/lastModified": "@items('UPDATE_Leases')?['lastModified']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "operationId": "PatchItem",
+                          "connectionName": "shared_sharepointonline-1"
+                        }
+                      }
+                    }
+                  },
+                  "runAfter": {
+                    "NEW_Leases": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Sync_People": {
+                  "type": "Scope",
+                  "actions": {
+                    "Get_UPD_SPL_Leases": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                          "table": "@parameters('UPM-DHA SharePoint List (Leases) (clr_UPMDHASharePointListLeases)')",
+                          "$filter": "Property/Id eq @{items('Each_SPL_Proprty')?['ID']}"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "operationId": "GetItems",
+                          "connectionName": "shared_sharepointonline-1"
+                        }
+                      },
+                      "runtimeConfiguration": {
+                        "paginationPolicy": {
+                          "minimumItemCount": 5000
+                        }
+                      }
+                    },
+                    "SPL_UPD_Leases_XML": {
+                      "type": "Compose",
+                      "inputs": "@xml(\r\n  json(\r\n    concat(\r\n      '{\"root\":', \r\n      string(body('Get_UPD_SPL_Leases')), \r\n      '}'\r\n    )\r\n  )\r\n)",
+                      "runAfter": {
+                        "Get_SPL_People": [
+                          "Succeeded"
+                        ]
+                      }
+                    },
+                    "RSM_People": {
+                      "type": "Select",
+                      "inputs": {
+                        "from": "@body('RSM_People_Xform')",
+                        "select": {
+                          "personId": "@item()?['personId']",
+                          "personName": "@trim(\r\n  replace(\r\n    concat(\r\n      string(item()?['firstName']),\r\n      ' ',\r\n      string(item()?['middleName']),\r\n      ' ',\r\n      string(item()?['lastName'])\r\n    ),\r\n    '  ',\r\n    ' '\r\n  )\r\n)",
+                          "shortName": "@trim(\r\n  replace(\r\n    concat(\r\n      string(item()?['firstName']),\r\n      ' ',\r\n      string(item()?['lastName'])\r\n    ),\r\n    '  ',\r\n    ' '\r\n  )\r\n)",
+                          "email": "@string(item()?['email'])",
+                          "householdStatus": "@item()?['householdStatus']",
+                          "residencyStatus": "@item()?['residencyStatus']",
+                          "moveInDate": "@item()?['moveInDate']",
+                          "moveOutDate": "@item()?['moveOutDate']",
+                          "moveOutReason": "@item()?['moveOutReason']",
+                          "lastModified": "@formatDateTime(\n  item()?['lastModified'],\n  'yyyy-MM-ddTHH:mm:ssZ'\n)",
+                          "unitId": "@item()?['lease/unitId']",
+                          "prospectId": "@item()?['lease/prospectId']",
+                          "prospectSourceName": "@item()?['lease/prospectSourceName']",
+                          "leaseId": "@item()?['lease/leaseId']",
+                          "leaseStartDate": "@item()?['lease/leaseStartDate']",
+                          "leaseEndDate": "@item()?['lease/leaseEndDate']",
+                          "propertyId": "@item()?['lease/propertyId']",
+                          "billingAccountId": "@item()?['lease/billingAccountId']",
+                          "personbillingAccountId": "@concat(\r\n  item()?['personId'],\r\n  '-',\r\n  item()?['lease/billingAccountId']\r\n)",
+                          "unitName": "@item()?['lease/unitNumber']",
+                          "propertyName": "@first(\r\n  xpath(\r\n    xml(outputs('SPL_Properties_XML')),\r\n    concat(\r\n      '//value[propertyId=\"',\r\n      item()?['lease/propertyId'],\r\n      '\"]/Title/text()'\r\n    )\r\n  )\r\n)"
+                        }
+                      },
+                      "runAfter": {
+                        "RSM_People_Xform": [
+                          "Succeeded"
+                        ]
+                      }
+                    },
+                    "RSM_People_Xform": {
+                      "type": "Select",
+                      "inputs": {
+                        "from": "@xpath(\r\n  outputs('RSM_Leases_XML'), \r\n  '//people'\r\n)",
+                        "select": "@addProperty(\r\n    json(xml(item()))?['people'],\r\n    'lease',\r\n    removeProperty(\r\n        json(\r\n            xml(\r\n                first(\r\n                    xpath(\r\n                        outputs('RSM_Leases_XML'),\r\n                        concat(\r\n                            '//leases[',\r\n                                'people[',\r\n                                    'personId=\"', json(xml(item()))?['people']?['personId'], '\"',\r\n                                    ' and residencyStatus=\"', json(xml(item()))?['people']?['residencyStatus'], '\"',\r\n                                    ' and lastModified=\"', json(xml(item()))?['people']?['lastModified'], '\"',\r\n                                    ' and string(moveInDate)=\"', coalesce(json(xml(item()))?['people']?['moveInDate'], ''), '\"',\r\n                                    ' and string(moveOutDate)=\"', coalesce(json(xml(item()))?['people']?['moveOutDate'], ''), '\"',\r\n                                ']',\r\n                            ']'\r\n                        )\r\n                    )\r\n                )\r\n            )\r\n        )?['leases'],\r\n        'people'\r\n    )\r\n)"
+                      },
+                      "runAfter": {
+                        "RSM_Leases_XML": [
+                          "Succeeded"
+                        ]
+                      }
+                    },
+                    "RSM_Leases_XML": {
+                      "type": "Compose",
+                      "inputs": "@xml(\r\n  json(\r\n    concat(\r\n      '{\"root\":', \r\n      string(outputs('Get_RSM_Leases')?['body']), \r\n      '}'\r\n    )\r\n  )\r\n)",
+                      "runAfter": {
+                        "SPL_UPD_Leases_XML": [
+                          "Succeeded"
+                        ]
+                      }
+                    },
+                    "RSM_PersonAcct_ID": {
+                      "type": "Select",
+                      "inputs": {
+                        "from": "@body('RSM_People')",
+                        "select": "@item()?['personbillingAccountId']"
+                      },
+                      "runAfter": {
+                        "RSM_People": [
+                          "Succeeded"
+                        ]
+                      }
+                    },
+                    "Get_SPL_People": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                          "table": "@parameters('UPM-DHA SharePoint List (People) (clr_UPMDHASharePointListPeople)')",
+                          "$filter": "Property/Id eq @{items('Each_SPL_Proprty')?['ID']}"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "operationId": "GetItems",
+                          "connectionName": "shared_sharepointonline-1"
+                        }
+                      },
+                      "runAfter": {
+                        "Get_UPD_SPL_Leases": [
+                          "Succeeded"
+                        ]
+                      },
+                      "runtimeConfiguration": {
+                        "paginationPolicy": {
+                          "minimumItemCount": 5000
+                        }
+                      }
+                    },
+                    "SPL_People": {
+                      "type": "Select",
+                      "inputs": {
+                        "from": "@outputs('Get_SPL_People')?['body/value']",
+                        "select": {
+                          "personId": "@item()?['personId']",
+                          "personName": "@item()?['Title']",
+                          "shortName": "@item()?['shortName']",
+                          "email": "@string(item()?['email'])",
+                          "householdStatus": "@item()?['householdStatus']",
+                          "residencyStatus": "@item()?['residencyStatus']",
+                          "moveInDate": "@item()?['moveInDate']",
+                          "moveOutDate": "@item()?['moveOutDate']",
+                          "moveOutReason": "@item()?['moveOutReason']",
+                          "lastModified": "@item()?['lastModified']",
+                          "unitId": "@first(\r\n  xpath(\r\n    xml(outputs('SPL_Units_XML')),\r\n    concat(\r\n      '//value[ID=\"',\r\n      item()?['Unit/Id'],\r\n      '\"]/UnitID/text()'\r\n    )\r\n  )\r\n)",
+                          "prospectId": "@item()?['prospectId']",
+                          "prospectSourceName": "@item()?['prospectSourceName']",
+                          "leaseId": "@first(\r\n  xpath(\r\n    xml(outputs('SPL_UPD_Leases_XML')),\r\n    concat(\r\n      '//value[ID=\"',\r\n      item()?['Lease/Id'],\r\n      '\"]/Title/text()'\r\n    )\r\n  )\r\n)",
+                          "leaseStartDate": "@item()?['leaseStartDate']",
+                          "leaseEndDate": "@item()?['leaseEndDate']",
+                          "propertyId": "@item()?['propertyId']",
+                          "billingAccountId": "@item()?['billingAccountId']",
+                          "personbillingAccountId": "@concat(\r\n  item()?['personId'],\r\n  '-', \r\n  item()?['billingAccountId']\r\n)",
+                          "unitName": "@item()?['unitName']",
+                          "propertyName": "@item()?['propertyName']"
+                        }
+                      },
+                      "runAfter": {
+                        "RSM_PersonAcct_ID": [
+                          "Succeeded"
+                        ]
+                      }
+                    },
+                    "SPL_PersonAcct_ID": {
+                      "type": "Select",
+                      "inputs": {
+                        "from": "@body('SPL_People')",
+                        "select": "@item()?['personbillingAccountId']"
+                      },
+                      "runAfter": {
+                        "SPL_People": [
+                          "Succeeded"
+                        ]
+                      }
+                    },
+                    "SHR_People": {
+                      "type": "Compose",
+                      "inputs": "@intersection(\r\n  body('RSM_People'),\r\n  body('SPL_People')\r\n)",
+                      "runAfter": {
+                        "SPL_PersonAcct_ID": [
+                          "Succeeded"
+                        ]
+                      }
+                    },
+                    "SHR_PersonAcct_ID": {
+                      "type": "Select",
+                      "inputs": {
+                        "from": "@outputs('SHR_People')",
+                        "select": "@item()?['personbillingAccountId']"
+                      },
+                      "runAfter": {
+                        "SHR_People": [
+                          "Succeeded"
+                        ]
+                      }
+                    },
+                    "New_RSM_People": {
+                      "type": "Query",
+                      "inputs": {
+                        "from": "@body('RSM_People')",
+                        "where": "@not(contains(body('SPL_PersonAcct_ID'),item()?['personbillingAccountId']))"
+                      },
+                      "runAfter": {
+                        "SHR_PersonAcct_ID": [
+                          "Succeeded"
+                        ]
+                      }
+                    },
+                    "UPD_RSM_People": {
+                      "type": "Query",
+                      "inputs": {
+                        "from": "@body('RSM_People')",
+                        "where": "@equals(and(\r\n  contains(\r\n    body('SPL_PersonAcct_ID'),\r\n    item()?['personbillingAccountId']\r\n  ),\r\n  not(\r\n    contains(\r\n      body('SHR_PersonAcct_ID'),\r\n      item()?['personbillingAccountId']\r\n    )\r\n  )\r\n),true)"
+                      },
+                      "runAfter": {
+                        "New_RSM_People": [
+                          "Succeeded"
+                        ]
+                      }
+                    },
+                    "Condition": {
+                      "type": "If",
+                      "expression": {
+                        "and": [
+                          {
+                            "equals": [
+                              1,
+                              1
+                            ]
+                          }
+                        ]
+                      },
+                      "actions": {
+                        "NEW_People": {
+                          "type": "Foreach",
+                          "foreach": "@body('New_RSM_People')",
+                          "actions": {
+                            "Create_SPL_People": {
+                              "type": "OpenApiConnection",
+                              "inputs": {
+                                "parameters": {
+                                  "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                                  "table": "@parameters('UPM-DHA SharePoint List (People) (clr_UPMDHASharePointListPeople)')",
+                                  "item/Title": "@items('NEW_People')?['personName']",
+                                  "item/shortName": "@items('NEW_People')?['shortName']",
+                                  "item/email": "@items('NEW_People')?['email']",
+                                  "item/householdStatus": "@items('NEW_People')?['householdStatus']",
+                                  "item/residencyStatus": "@items('NEW_People')?['residencyStatus']",
+                                  "item/leaseStartDate": "@items('NEW_People')?['leaseStartDate']",
+                                  "item/leaseEndDate": "@items('NEW_People')?['leaseEndDate']",
+                                  "item/moveInDate": "@items('NEW_People')?['moveInDate']",
+                                  "item/moveOutDate": "@items('NEW_People')?['moveOutDate']",
+                                  "item/moveOutReason": "@items('NEW_People')?['moveOutReason']",
+                                  "item/lastModified": "@items('NEW_People')?['lastModified']",
+                                  "item/personId": "@items('NEW_People')?['personId']",
+                                  "item/billingAccountId": "@items('NEW_People')?['billingAccountId']",
+                                  "item/propertyId": "@items('NEW_People')?['propertyId']",
+                                  "item/prospectId": "@items('NEW_People')?['prospectId']",
+                                  "item/prospectSourceName": "@items('NEW_People')?['prospectSourceName']",
+                                  "item/unitName": "@items('NEW_People')?['unitName']",
+                                  "item/propertyName": "@items('NEW_People')?['propertyName']",
+                                  "item/Unit/Id": "@first(\r\n  xpath(\r\n    xml(outputs('SPL_Units_XML')),\r\n    concat(\r\n      '//value[UnitID=\"',\r\n      items('NEW_People')?['unitId'],\r\n      '\"]/ID/text()'\r\n    )\r\n  )\r\n)",
+                                  "item/Property/Id": "@first(\r\n  xpath(\r\n    xml(outputs('SPL_Properties_XML')),\r\n    concat(\r\n      '//value[propertyId=\"',\r\n      items('NEW_People')?['propertyId'],\r\n      '\"]/ID/text()'\r\n    )\r\n  )\r\n)",
+                                  "item/Lease/Id": "@first(\r\n  xpath(\r\n    xml(outputs('SPL_UPD_Leases_XML')),\r\n    concat(\r\n      '//value[Title=\"',\r\n      items('NEW_People')?['leaseId'],\r\n      '\"]/ID/text()'\r\n    )\r\n  )\r\n)"
+                                },
+                                "host": {
+                                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                                  "operationId": "PostItem",
+                                  "connectionName": "shared_sharepointonline-1"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "UPDATE_People": {
+                          "type": "Foreach",
+                          "foreach": "@body('UPD_RSM_People')",
+                          "actions": {
+                            "Update_SPL_people": {
+                              "type": "OpenApiConnection",
+                              "inputs": {
+                                "parameters": {
+                                  "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                                  "table": "@parameters('UPM-DHA SharePoint List (People) (clr_UPMDHASharePointListPeople)')",
+                                  "id": "@first(\r\n  xpath(\r\n    xml(outputs('SPL_People_Ref_XML')),\r\n    concat(\r\n      '//body[personbillingAccountId=\"',\r\n      items('UPDATE_People')?['personbillingAccountId'],\r\n      '\"]/ID/text()'\r\n    )\r\n  )\r\n)",
+                                  "item/Title": "@items('UPDATE_People')?['personName']",
+                                  "item/shortName": "@items('UPDATE_People')?['shortName']",
+                                  "item/email": "@items('UPDATE_People')?['email']",
+                                  "item/householdStatus": "@items('UPDATE_People')?['householdStatus']",
+                                  "item/residencyStatus": "@items('UPDATE_People')?['residencyStatus']",
+                                  "item/leaseStartDate": "@items('UPDATE_People')?['leaseStartDate']",
+                                  "item/leaseEndDate": "@items('UPDATE_People')?['leaseEndDate']",
+                                  "item/moveInDate": "@items('UPDATE_People')?['moveInDate']",
+                                  "item/moveOutDate": "@items('UPDATE_People')?['moveOutDate']",
+                                  "item/moveOutReason": "@items('UPDATE_People')?['moveOutReason']",
+                                  "item/lastModified": "@items('UPDATE_People')?['lastModified']",
+                                  "item/billingAccountId": "@items('UPDATE_People')?['billingAccountId']",
+                                  "item/propertyId": "@items('UPDATE_People')?['propertyId']",
+                                  "item/prospectId": "@items('UPDATE_People')?['prospectId']",
+                                  "item/prospectSourceName": "@items('UPDATE_People')?['prospectSourceName']",
+                                  "item/unitName": "@items('UPDATE_People')?['unitName']",
+                                  "item/propertyName": "@items('UPDATE_People')?['propertyName']",
+                                  "item/Unit/Id": "@first(\r\n  xpath(\r\n    xml(outputs('SPL_Units_XML')),\r\n    concat(\r\n      '//value[UnitID=\"',\r\n      items('UPDATE_People')?['unitId'],\r\n      '\"]/ID/text()'\r\n    )\r\n  )\r\n)",
+                                  "item/Property/Id": "@first(\r\n  xpath(\r\n    xml(outputs('SPL_Properties_XML')),\r\n    concat(\r\n      '//value[propertyId=\"',\r\n      items('UPDATE_People')?['propertyId'],\r\n      '\"]/ID/text()'\r\n    )\r\n  )\r\n)",
+                                  "item/Lease/Id": "@first(\r\n  xpath(\r\n    xml(outputs('SPL_UPD_Leases_XML')),\r\n    concat(\r\n      '//value[Title=\"',\r\n      items('UPDATE_People')?['leaseId'],\r\n      '\"]/ID/text()'\r\n    )\r\n  )\r\n)"
+                                },
+                                "host": {
+                                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                                  "operationId": "PatchItem",
+                                  "connectionName": "shared_sharepointonline-1"
+                                }
+                              }
+                            }
+                          },
+                          "runAfter": {
+                            "SPL_People_Ref_XML": [
+                              "SUCCEEDED"
+                            ]
+                          }
+                        },
+                        "SPL_People_Ref_XML": {
+                          "type": "Compose",
+                          "inputs": "@xml(\r\n  json(\r\n    concat(\r\n      '{\"root\":', \r\n      string(outputs('SPL_People_Ref')), \r\n      '}'\r\n    )\r\n  )\r\n)",
+                          "runAfter": {
+                            "SPL_People_Ref": [
+                              "SUCCEEDED"
+                            ]
+                          }
+                        },
+                        "SPL_People_Ref": {
+                          "type": "Select",
+                          "inputs": {
+                            "from": "@outputs('Get_SPL_People')?['body/value']",
+                            "select": {
+                              "personbillingAccountId": "@concat(\r\n  item()?['personId'],\r\n  '-', \r\n  item()?['billingAccountId']\r\n)",
+                              "ID": "@item()?['ID']"
+                            }
+                          },
+                          "runAfter": {
+                            "NEW_People": [
+                              "Succeeded"
+                            ]
+                          }
+                        }
+                      },
+                      "else": {
+                        "actions": {}
+                      },
+                      "runAfter": {
+                        "UPD_RSM_People": [
+                          "Succeeded"
+                        ]
+                      }
+                    }
+                  },
+                  "runAfter": {
+                    "UPDATE_Leases": [
+                      "Succeeded"
+                    ]
+                  }
+                }
+              },
+              "runAfter": {
+                "Master_SPL_Leases": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Get_SPL_Leases": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                  "table": "@parameters('UPM-DHA SharePoint List (Leases) (clr_UPMDHASharePointListLeases)')"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "GetItems",
+                  "connectionName": "shared_sharepointonline-1"
+                }
+              },
+              "runAfter": {
+                "Get_UPD_SPL_Units": [
+                  "Succeeded"
+                ]
+              },
+              "runtimeConfiguration": {
+                "paginationPolicy": {
+                  "minimumItemCount": 5000
+                }
+              }
+            },
+            "SPL_Properties_XML": {
+              "type": "Compose",
+              "inputs": "@xml(\n  json(\n    concat(\n      '{\"root\":', \n      string(body('Get_UPD_SPL_Props')), \n      '}'\n    )\n  )\n)",
+              "runAfter": {
+                "Get_SPL_Leases": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Get_UPD_SPL_Units": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                  "table": "@parameters('UPM-DHA SharePoint List (Units) (clr_UPMDHASharePointListUnits)')"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "GetItems",
+                  "connectionName": "shared_sharepointonline-1"
+                }
+              },
+              "runtimeConfiguration": {
+                "paginationPolicy": {
+                  "minimumItemCount": 5000
+                }
+              }
+            },
+            "SPL_Units_XML": {
+              "type": "Compose",
+              "inputs": "@xml(\n  json(\n    concat(\n      '{\"root\":', \n      string(body('Get_UPD_SPL_Units')), \n      '}'\n    )\n  )\n)",
+              "runAfter": {
+                "SPL_Properties_XML": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Master_SPL_Leases": {
+              "type": "Select",
+              "inputs": {
+                "from": "@outputs('Get_SPL_Leases')?['body/value']",
+                "select": {
+                  "leaseId": "@item()?['Title']",
+                  "leaseStatus": "@item()?['leaseStatus']",
+                  "leaseStartDate": "@item()?['leaseStartDate']",
+                  "leaseEndDate": "@item()?['leaseEndDate']",
+                  "applicationDate": "@item()?['applicationDate']",
+                  "approvalDate": "@item()?['approvalDate']",
+                  "denialDate": "@item()?['denialDate']",
+                  "cancellationDate": "@item()?['cancellationDate']",
+                  "leaseSignedDate": "@item()?['leaseSignedDate']",
+                  "scheduledMoveInDate": "@item()?['scheduledMoveInDate']",
+                  "moveInDate": "@item()?['moveInDate']",
+                  "noticeToVacateDate": "@item()?['noticeToVacateDate']",
+                  "scheduledMoveOutDate": "@item()?['scheduledMoveOutDate']",
+                  "moveOutDate": "@item()?['moveOutDate']",
+                  "moveOutReconciliationDate": "@item()?['moveOutReconciliationDate']",
+                  "transferredTo": "@item()?['transferredTo']",
+                  "lastModified": "@item()?['lastModified']",
+                  "propertyId": "@first(\r\n  xpath(\r\n    xml(outputs('SPL_Properties_XML')),\r\n    concat(\r\n      '//value[ID=\"',\r\n      item()?['Property/Id'],\r\n      '\"]/propertyId/text()'\r\n    )\r\n  )\r\n)",
+                  "unitId": "@first(\r\n  xpath(\r\n    xml(outputs('SPL_Units_XML')),\r\n    concat(\r\n      '//value[ID=\"',\r\n      item()?['Unit/Id'],\r\n      '\"]/UnitID/text()'\r\n    )\r\n  )\r\n)",
+                  "billingAccountId": "@item()?['billingAccountId']"
+                }
+              },
+              "runAfter": {
+                "SPL_Leases_XML": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "SPL_Leases_JSON": {
+              "type": "Select",
+              "inputs": {
+                "from": "@outputs('Get_SPL_Leases')?['body/value']",
+                "select": {
+                  "leaseId": "@item()?['Title']",
+                  "leaseStatus": "@item()?['leaseStatus']",
+                  "leaseStartDate": "@item()?['leaseStartDate']",
+                  "leaseEndDate": "@item()?['leaseEndDate']",
+                  "applicationDate": "@item()?['applicationDate']",
+                  "approvalDate": "@item()?['approvalDate']",
+                  "denialDate": "@item()?['denialDate']",
+                  "cancellationDate": "@item()?['cancellationDate']",
+                  "leaseSignedDate": "@item()?['leaseSignedDate']",
+                  "scheduledMoveInDate": "@item()?['scheduledMoveInDate']",
+                  "moveInDate": "@item()?['moveInDate']",
+                  "noticeToVacateDate": "@item()?['noticeToVacateDate']",
+                  "scheduledMoveOutDate": "@item()?['scheduledMoveOutDate']",
+                  "moveOutDate": "@item()?['moveOutDate']",
+                  "moveOutReconciliationDate": "@item()?['moveOutReconciliationDate']",
+                  "transferredTo": "@item()?['transferredTo']",
+                  "lastModified": "@item()?['lastModified']",
+                  "ID": "@item()?['ID']"
+                }
+              },
+              "runAfter": {
+                "SPL_Units_XML": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "SPL_Leases_XML": {
+              "type": "Compose",
+              "inputs": "@xml(\r\n  json(\r\n    concat(\r\n      '{\"root\":', \r\n      string(outputs('SPL_Leases_JSON')), \r\n      '}'\r\n    )\r\n  )\r\n)",
+              "runAfter": {
+                "SPL_Leases_JSON": [
+                  "Succeeded"
+                ]
+              }
+            }
+          },
+          "runAfter": {
+            "Sync_Units": [
+              "Succeeded"
+            ]
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

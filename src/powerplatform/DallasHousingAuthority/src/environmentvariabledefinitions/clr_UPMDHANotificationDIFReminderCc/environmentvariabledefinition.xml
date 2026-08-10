@@ -1,0 +1,11 @@
+<environmentvariabledefinition schemaname="clr_UPMDHANotificationDIFReminderCc">
+  <defaultvalue>michael@upsidecapitalholdings.com;joylyn@upsidecapitalholdings.com;kyren@upsidecapitalholdings.com;chris@upsidecapitalholdings.com</defaultvalue>
+  <displayname default="UPM-DHA Notification (DIF Reminder | Cc)">
+    <label description="UPM-DHA Notification (DIF Reminder | Cc)" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

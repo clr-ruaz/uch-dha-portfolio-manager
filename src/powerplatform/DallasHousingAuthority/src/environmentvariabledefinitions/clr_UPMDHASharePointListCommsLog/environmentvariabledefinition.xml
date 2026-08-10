@@ -1,0 +1,16 @@
+<environmentvariabledefinition schemaname="clr_UPMDHASharePointListCommsLog">
+  <apiid>/providers/microsoft.powerapps/apis/shared_sharepointonline</apiid>
+  <defaultvalue>e19d2904-c4f1-4ed3-a1f5-24a813c3ee94</defaultvalue>
+  <displayname default="UPM-DHA SharePoint List (Comms Log)">
+    <label description="UPM-DHA SharePoint List (Comms Log)" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.1</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <parameterkey>table</parameterkey>
+  <parentdefinitionid>
+    <schemaname>clr_UPMDHASharePointSite</schemaname>
+  </parentdefinitionid>
+  <secretstore>0</secretstore>
+  <type>100000004</type>
+</environmentvariabledefinition>

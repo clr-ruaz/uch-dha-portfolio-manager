@@ -1,0 +1,542 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_office365-1": {
+        "api": {
+          "name": "shared_office365"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UCHAVPO365OutlookConnection"
+        },
+        "runtimeSource": "embedded"
+      },
+      "shared_sharepointonline-1": {
+        "api": {
+          "name": "shared_sharepointonline"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UPMDHASharePointConnection"
+        },
+        "runtimeSource": "embedded"
+      },
+      "shared_keyvault-1": {
+        "api": {
+          "name": "shared_keyvault"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UPMDHAAzureVaultConnection"
+        },
+        "runtimeSource": "embedded"
+      },
+      "shared_excelonlinebusiness": {
+        "api": {
+          "name": "shared_excelonlinebusiness"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UPMDHAExcelOnlineConnection"
+        },
+        "runtimeSource": "embedded"
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "UPM-DHA Notification (DIF Comms Log | From) (clr_UPMDHANotificationDIFCommsLogFrom)": {
+          "defaultValue": "christian-ruazol@myresman.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHANotificationDIFCommsLogFrom"
+          }
+        },
+        "UPM-DHA Notification (DIF Comms Log | Mailbox) (clr_UPMDHANotificationDIFCommsLogMailbox)": {
+          "defaultValue": "chris@upsidecapitalholdings.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHANotificationDIFCommsLogMailbox"
+          }
+        },
+        "UPM-DHA Azure Function (Based URL) (clr_UPMDHAAzureFunctionBasedURL)": {
+          "defaultValue": "https://uch-utilities-dmgadbayg4hahufr.eastus-01.azurewebsites.net",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHAAzureFunctionBasedURL"
+          }
+        },
+        "UPM-DHA Azure Function (Secret | Extract Zip) (clr_UPMDHAAzureFunctionSecretExtractZip)": {
+          "defaultValue": "UCH-Utikities-ExtractZip-Code-PRD",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHAAzureFunctionSecretExtractZip"
+          }
+        },
+        "UPM-DHA Azure Function (Secret | CSV to XLSX) (clr_UPMDHAAzureFunctionSecret)": {
+          "defaultValue": "UCH-AzureFunction-Code",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHAAzureFunctionSecret"
+          }
+        },
+        "UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)": {
+          "defaultValue": "https://upsidecapitalholdings.sharepoint.com/Automation/UPM-DHA/DEV",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointSite"
+          }
+        },
+        "UPM-DHA SharePoint Folder (Comms Log) (clr_UPMDHASharePointFolderCommsLog)": {
+          "defaultValue": "CommsLog",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointFolderCommsLog"
+          }
+        },
+        "UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)": {
+          "defaultValue": "26ac3f0d-5a5d-47cd-a6b8-1e99b9d34b87",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListIntakeForm"
+          }
+        },
+        "UPM-DHA Solution Label (Project Name) (clr_UPMDHASolutionLabelProjectName)": {
+          "defaultValue": "DHA Tracker",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASolutionLabelProjectName"
+          }
+        },
+        "UPM-DHA Notification (From) (clr_UPMDHANotificationFrom)": {
+          "defaultValue": "chris@upsidecapitalholdings.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHANotificationFrom"
+          }
+        },
+        "UPM-DHA Notification (Support) (clr_UPMDHANotificationSupport)": {
+          "defaultValue": "chris@upsidecapitalholdings.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHANotificationSupport"
+          }
+        },
+        "UPM-DHA Notification (DIF Comms Log | Subject Filter) (clr_UPMDHANotificationDIFCommsLogSubjectFilter)": {
+          "defaultValue": "DHA",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHANotificationDIFCommsLogSubjectFilter"
+          }
+        }
+      },
+      "triggers": {
+        "When_a_new_email_arrives_in_a_shared_mailbox_(V2)": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "mailboxAddress": "@parameters('UPM-DHA Notification (DIF Comms Log | Mailbox) (clr_UPMDHANotificationDIFCommsLogMailbox)')",
+              "from": "@parameters('UPM-DHA Notification (DIF Comms Log | From) (clr_UPMDHANotificationDIFCommsLogFrom)')",
+              "hasAttachments": true,
+              "includeAttachments": true
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+              "operationId": "SharedMailboxOnNewEmailV2",
+              "connectionName": "shared_office365-1"
+            }
+          },
+          "recurrence": {
+            "interval": 1,
+            "frequency": "Minute"
+          },
+          "splitOn": "@triggerOutputs()?['body/value']",
+          "metadata": {
+            "operationMetadataId": "3a2c6d29-2487-449f-be7d-021b7c831b17"
+          }
+        }
+      },
+      "actions": {
+        "Valid_CSV_File": {
+          "type": "If",
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@empty(body('Extract_ZIP_File')?['files']?[0]?['contentBase64'])",
+                  "@false"
+                ]
+              }
+            ]
+          },
+          "actions": {
+            "Each_DHA_Note": {
+              "type": "Foreach",
+              "foreach": "@body('Get_DHA_Notes')",
+              "actions": {
+                "Get_DHA_Tenants": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                      "table": "@parameters('UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)')",
+                      "$filter": "TenantName/shortName eq '@{item()?['Resident']}'@{if(\n  not(empty(string(item()?['Unit']))),\n  concat(\n    ' and TenantName/unitName eq ''',\n    item()?['Unit'],\n    ''''\n  ),\n  ''\n)}"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "operationId": "GetItems",
+                      "connectionName": "shared_sharepointonline-1"
+                    }
+                  }
+                },
+                "Get_Tenants_Details": {
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@outputs('Get_DHA_Tenants')?['body/value']",
+                    "select": {
+                      "Tenant Name": "@item()?['TenantName/Value']",
+                      "Property": "@item()?['Tenant_x0020_Name_x003a__x0020_p/Value']",
+                      "Unit": "@item()?['Tenant_x0020_Name_x003a__x0020_u/Value']",
+                      "Status": "@item()?['Tenant_x0020_Name_x003a__x0020_r/Value']",
+                      "Lease Start": "@item()?['Tenant_x0020_Name_x003a__x0020_l/Value']",
+                      "Move-In": "@item()?['Tenant_x0020_Name_x003a__x0020_m/Value']",
+                      "SPL ID": "@item()?['ID']"
+                    }
+                  },
+                  "runAfter": {
+                    "Get_DHA_Tenants": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Tenant_Exists": {
+                  "type": "If",
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@empty(body('Get_Tenants_Details'))",
+                          "@false"
+                        ]
+                      }
+                    ]
+                  },
+                  "actions": {
+                    "Update_DHA_Notes": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                          "table": "@parameters('UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)')",
+                          "id": "@first(\r\n  reverse(\r\n    sort(\r\n      body('Get_Tenants_Details'),\r\n      'Lease Start'\r\n    )\r\n  )\r\n)?['SPL ID']",
+                          "item/DHANotes": "@items('Each_DHA_Note')?['Note']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "operationId": "PatchItem",
+                          "connectionName": "shared_sharepointonline-1"
+                        }
+                      }
+                    }
+                  },
+                  "else": {
+                    "actions": {
+                      "Send_email_alert": {
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "emailMessage/MailboxAddress": "@parameters('UPM-DHA Notification (From) (clr_UPMDHANotificationFrom)')",
+                            "emailMessage/To": "@parameters('UPM-DHA Notification (Support) (clr_UPMDHANotificationSupport)')",
+                            "emailMessage/Subject": "@{parameters('UPM-DHA Solution Label (Project Name) (clr_UPMDHASolutionLabelProjectName)')} Alert: No matching tenant for DHA Notes",
+                            "emailMessage/Body": "<p class=\"editor-paragraph\">The following tenant criteria didn't match any records in DIF:<br>Tenant Name: @{item()?['Resident']}<br>Unit Number: @{item()?['Unit']}</p>",
+                            "emailMessage/Importance": "High"
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                            "operationId": "SharedMailboxSendEmailV2",
+                            "connectionName": "shared_office365-1"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "runAfter": {
+                    "Get_Tenants_Details": [
+                      "Succeeded"
+                    ]
+                  }
+                }
+              },
+              "runAfter": {
+                "Fetch_DHANotes": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Fetch_DHANotes": {
+              "type": "Scope",
+              "actions": {
+                "Util-Xform_CSV_Code": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "secretName": "@parameters('UPM-DHA Azure Function (Secret | CSV to XLSX) (clr_UPMDHAAzureFunctionSecret)')"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_keyvault",
+                      "operationId": "GetSecret",
+                      "connectionName": "shared_keyvault-1"
+                    }
+                  }
+                },
+                "Convert_CSV_to_XLSX": {
+                  "type": "Http",
+                  "inputs": {
+                    "uri": "@{parameters('UPM-DHA Azure Function (Based URL) (clr_UPMDHAAzureFunctionBasedURL)')}/api/DqsConvertCsvToXlsx?code=@{outputs('Util-Xform_CSV_Code')?['body/value']}",
+                    "method": "POST",
+                    "body": {
+                      "fileBase64": "@body('Extract_ZIP_File')?['files']?[0]?['contentBase64']",
+                      "fileName": "@body('Extract_ZIP_File')?['files']?[0]?['path']",
+                      "firstRowIsHeader": "@true",
+                      "formatAsTable": "@true"
+                    }
+                  },
+                  "runAfter": {
+                    "Util-Xform_CSV_Code": [
+                      "Succeeded"
+                    ]
+                  },
+                  "runtimeConfiguration": {
+                    "contentTransfer": {
+                      "transferMode": "Chunked"
+                    }
+                  }
+                },
+                "XLSX_Filename": {
+                  "type": "Compose",
+                  "inputs": "@{replace(\n  body('Convert_CSV_to_XLSX')?['fileName'],\n  last(\n    split(\n      body('Convert_CSV_to_XLSX')?['fileName'],\n      '.'\n    )\n  ),\n  ''\n)}_@{formatDateTime(\n  utcNow(),\n  'yyyy-MM-dd-mmss'\n)}.xlsx",
+                  "runAfter": {
+                    "Convert_CSV_to_XLSX": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Save_XLSX_file": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                      "folderPath": "/@{parameters('UPM-DHA SharePoint Folder (Comms Log) (clr_UPMDHASharePointFolderCommsLog)')}/@{formatDateTime(\r\n  utcNow(),\r\n  'yyyy-MM-dd'\r\n)}",
+                      "name": "@outputs('XLSX_Filename')",
+                      "body": "@base64ToBinary(body('Convert_CSV_to_XLSX')?['fileBase64'])"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "operationId": "CreateFile",
+                      "connectionName": "shared_sharepointonline-1"
+                    }
+                  },
+                  "runAfter": {
+                    "XLSX_Filename": [
+                      "Succeeded"
+                    ]
+                  },
+                  "runtimeConfiguration": {
+                    "contentTransfer": {
+                      "transferMode": "Chunked"
+                    }
+                  }
+                },
+                "Get_Library_Details": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                      "parameters/method": "GET",
+                      "parameters/uri": "_api/v2.0/drives"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "operationId": "HttpRequest",
+                      "connectionName": "shared_sharepointonline-1"
+                    }
+                  },
+                  "runAfter": {
+                    "Save_XLSX_file": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "CommsLog_Drive_ID": {
+                  "type": "Compose",
+                  "inputs": "@first(\r\n  xpath(\r\n    xml(\r\n      json(\r\n        concat(\r\n          '{\"root\":{\"element\":', \r\n          body('Get_Library_Details'), \r\n          '}}'\r\n        )\r\n      )\r\n    ), \r\n    concat(\r\n      '//value[name=\"',\r\n      split(\r\n        outputs('Save_XLSX_file')?['body/Path'],\r\n        '/'\r\n      )?[1],\r\n      '\"]/id/text()'\r\n    )\r\n  )\r\n)",
+                  "runAfter": {
+                    "Get_Library_Details": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Get_XSLS_Tables": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "source": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                      "drive": "@outputs('CommsLog_Drive_ID')",
+                      "file": "/@{formatDateTime(\n  utcNow(),\n  'yyyy-MM-dd'\n)}/@{outputs('XLSX_Filename')}"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                      "operationId": "GetTables",
+                      "connectionName": "shared_excelonlinebusiness"
+                    }
+                  },
+                  "runAfter": {
+                    "CommsLog_Drive_ID": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "01TDZA5QNVMVECGVXEZNHYXON76MWR6Z2K": "/2026-07-13/milo communication log_2026-07-13-34.xlsx",
+                    "tableId": null
+                  }
+                },
+                "List_rows_in_table": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "source": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                      "drive": "@outputs('CommsLog_Drive_ID')",
+                      "file": "/@{formatDateTime(\n  utcNow(),\n  'yyyy-MM-dd'\n)}/@{outputs('XLSX_Filename')}",
+                      "table": "@first(outputs('Get_XSLS_Tables')?['body/value'])?['id']"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                      "operationId": "GetItems",
+                      "connectionName": "shared_excelonlinebusiness"
+                    }
+                  },
+                  "runAfter": {
+                    "Get_XSLS_Tables": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "01TDZA5QLYIRFGDLF7OZB2X6ATGAKNLSRN": "/2026-07-13/milo communication log_2026-07-13-28.xlsx",
+                    "tableId": "@first(outputs('Get_XSLS_Tables')?['body/value'])?['id']",
+                    "01TDZA5QNVMVECGVXEZNHYXON76MWR6Z2K": "/2026-07-13/milo communication log_2026-07-13-34.xlsx"
+                  }
+                },
+                "Get_DHA_Notes": {
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@outputs('List_rows_in_table')?['body/value']",
+                    "where": "@contains(toLower(item()?['Note']),toLower(\r\n  parameters('UPM-DHA Notification (DIF Comms Log | Subject Filter) (clr_UPMDHANotificationDIFCommsLogSubjectFilter)')\r\n))"
+                  },
+                  "runAfter": {
+                    "List_rows_in_table": [
+                      "Succeeded"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "actions": {}
+          },
+          "runAfter": {
+            "Extract_CSV_File": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Extract_CSV_File": {
+          "type": "Scope",
+          "actions": {
+            "Get_Attachment": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "messageId": "@triggerOutputs()?['body/id']",
+                  "attachmentId": "@triggerOutputs()?['body/attachments']?[0]?['id']",
+                  "mailboxAddress": "@parameters('UPM-DHA Notification (DIF Comms Log | Mailbox) (clr_UPMDHANotificationDIFCommsLogMailbox)')"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                  "operationId": "GetAttachment_V2",
+                  "connectionName": "shared_office365-1"
+                }
+              }
+            },
+            "Util-Extract_Zip_Code": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "secretName": "@parameters('UPM-DHA Azure Function (Secret | Extract Zip) (clr_UPMDHAAzureFunctionSecretExtractZip)')"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_keyvault",
+                  "operationId": "GetSecret",
+                  "connectionName": "shared_keyvault-1"
+                }
+              },
+              "runAfter": {
+                "Get_Attachment": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Extract_ZIP_File": {
+              "type": "Http",
+              "inputs": {
+                "uri": "@{parameters('UPM-DHA Azure Function (Based URL) (clr_UPMDHAAzureFunctionBasedURL)')}/api/DqsExtractZip?code=@{outputs('Util-Extract_Zip_Code')?['body/value']}",
+                "method": "POST",
+                "body": {
+                  "fileBase64": "@outputs('Get_Attachment')?['body/contentBytes']"
+                }
+              },
+              "runAfter": {
+                "Util-Extract_Zip_Code": [
+                  "Succeeded"
+                ]
+              },
+              "runtimeConfiguration": {
+                "contentTransfer": {
+                  "transferMode": "Chunked"
+                }
+              }
+            }
+          },
+          "runAfter": {}
+        },
+        "Mark_as_read": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "messageId": "@triggerOutputs()?['body/id']",
+              "mailboxAddress": "@parameters('UPM-DHA Notification (DIF Comms Log | Mailbox) (clr_UPMDHANotificationDIFCommsLogMailbox)')",
+              "body/isRead": true
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+              "operationId": "MarkAsRead_V3",
+              "connectionName": "shared_office365-1"
+            }
+          },
+          "runAfter": {
+            "Valid_CSV_File": [
+              "Succeeded"
+            ]
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

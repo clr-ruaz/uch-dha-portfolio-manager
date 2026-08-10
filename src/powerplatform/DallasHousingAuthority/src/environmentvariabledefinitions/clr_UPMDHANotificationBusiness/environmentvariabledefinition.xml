@@ -1,0 +1,10 @@
+<environmentvariabledefinition schemaname="clr_UPMDHANotificationBusiness">
+  <displayname default="UPM-DHA Notification (Business)">
+    <label description="UPM-DHA Notification (Business)" languagecode="1033" />
+  </displayname>
+  <introducedversion>0.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

@@ -1,0 +1,11 @@
+<environmentvariabledefinition schemaname="clr_UPMDHANotificationFrom">
+  <defaultvalue>dha-notifications@upsidecapitalholdings.com</defaultvalue>
+  <displayname default="UPM-DHA Notification (From)">
+    <label description="UPM-DHA Notification (From)" languagecode="1033" />
+  </displayname>
+  <introducedversion>0.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

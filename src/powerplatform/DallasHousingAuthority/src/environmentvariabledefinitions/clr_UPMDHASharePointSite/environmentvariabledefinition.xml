@@ -1,0 +1,13 @@
+<environmentvariabledefinition schemaname="clr_UPMDHASharePointSite">
+  <apiid>/providers/microsoft.powerapps/apis/shared_sharepointonline</apiid>
+  <defaultvalue>https://upsidecapitalholdings.sharepoint.com/Automation/UPM-DHA</defaultvalue>
+  <displayname default="UPM-DHA SharePoint Site">
+    <label description="UPM-DHA SharePoint Site" languagecode="1033" />
+  </displayname>
+  <introducedversion>0.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <parameterkey>dataset</parameterkey>
+  <secretstore>0</secretstore>
+  <type>100000004</type>
+</environmentvariabledefinition>

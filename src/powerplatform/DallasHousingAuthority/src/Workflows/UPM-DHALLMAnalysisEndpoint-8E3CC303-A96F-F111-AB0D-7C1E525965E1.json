@@ -1,0 +1,190 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_keyvault-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UPMDHAAzureVaultConnection"
+        },
+        "api": {
+          "name": "shared_keyvault"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "UPM-DHA Azure OpenAI (Deployment) (clr_UPMDHAAzureOpenAIDeployment)": {
+          "defaultValue": "gpt-5.4",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHAAzureOpenAIDeployment"
+          }
+        },
+        "UPM-DHA Azure OpenAI (Endpoint) (clr_UPMDHAAzureOpenAIEndpoint)": {
+          "defaultValue": "https://uch-openai.openai.azure.com/openai/responses?api-version=2025-04-01-preview",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHAAzureOpenAIEndpoint"
+          }
+        },
+        "UPM-DHA Azure OpenAI (Secret Name) (clr_UPMDHAAzureOpenAISecretName)": {
+          "defaultValue": "UCH-OpenAI",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHAAzureOpenAISecretName"
+          }
+        }
+      },
+      "triggers": {
+        "manual": {
+          "metadata": {
+            "operationMetadataId": "aa7e96cf-1e5f-4a49-907c-5f2d8c324b42"
+          },
+          "type": "Request",
+          "kind": "Http",
+          "inputs": {
+            "triggerAuthenticationType": "All",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "System Message": {
+                  "type": "string"
+                },
+                "User Message": {},
+                "JSON Format": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      },
+      "actions": {
+        "Success": {
+          "runAfter": {
+            "LLM_Response": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "4ad46fa3-ad4d-412c-bf25-979c327d5dec"
+          },
+          "type": "Response",
+          "kind": "Http",
+          "inputs": {
+            "statusCode": 200,
+            "body": {
+              "Status": "Successful",
+              "Response": "@body('LLM_Response')?[0]?['content']?[0]?['text']"
+            }
+          }
+        },
+        "Get_OpenAI_Key": {
+          "runAfter": {},
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "secretName": "@parameters('UPM-DHA Azure OpenAI (Secret Name) (clr_UPMDHAAzureOpenAISecretName)')"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_keyvault",
+              "operationId": "GetSecret",
+              "connectionName": "shared_keyvault-1"
+            }
+          }
+        },
+        "LLM_POST_Request": {
+          "runAfter": {
+            "Get_OpenAI_Key": [
+              "Succeeded"
+            ]
+          },
+          "limit": {
+            "timeout": "PT30M"
+          },
+          "type": "Http",
+          "inputs": {
+            "uri": "@parameters('UPM-DHA Azure OpenAI (Endpoint) (clr_UPMDHAAzureOpenAIEndpoint)')",
+            "method": "POST",
+            "headers": {
+              "Content-Type": "application/json",
+              "api-key": "@{outputs('Get_OpenAI_Key')?['body/value']}"
+            },
+            "body": {
+              "model": "@parameters('UPM-DHA Azure OpenAI (Deployment) (clr_UPMDHAAzureOpenAIDeployment)')",
+              "input": [
+                {
+                  "role": "system",
+                  "content": "@triggerBody()?['System Message']"
+                },
+                {
+                  "role": "user",
+                  "content": "@triggerBody()?['User Message']"
+                }
+              ],
+              "text": {
+                "format": {
+                  "type": "@if(\r\n  triggerBody()?['JSON Format'],\r\n  'json_object',\r\n  'text'\r\n)"
+                }
+              }
+            },
+            "retryPolicy": {
+              "type": "fixed",
+              "count": 2,
+              "interval": "PT60S"
+            }
+          },
+          "operationOptions": "DisableAsyncPattern",
+          "runtimeConfiguration": {
+            "contentTransfer": {
+              "transferMode": "Chunked"
+            }
+          }
+        },
+        "Fail": {
+          "runAfter": {
+            "LLM_Response": [
+              "Failed"
+            ]
+          },
+          "type": "Response",
+          "kind": "Http",
+          "inputs": {
+            "statusCode": 200,
+            "body": {
+              "Status": "Failed",
+              "Response": "Error message here...."
+            }
+          }
+        },
+        "LLM_Response": {
+          "runAfter": {
+            "LLM_POST_Request": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "480a2970-f07b-49f6-bfe1-938e1b10f199"
+          },
+          "type": "Query",
+          "inputs": {
+            "from": "@body('LLM_POST_Request')?['output']",
+            "where": "@equals(item()?['type'],'message')"
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

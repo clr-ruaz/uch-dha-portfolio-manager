@@ -1,0 +1,245 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_keyvault": {
+        "api": {
+          "name": "shared_keyvault"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UPMDHAAzureVaultConnection"
+        },
+        "runtimeSource": "embedded"
+      },
+      "shared_sharepointonline": {
+        "api": {
+          "name": "shared_sharepointonline"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UPMDHASharePointConnection"
+        },
+        "runtimeSource": "embedded"
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)": {
+          "defaultValue": "https://upsidecapitalholdings.sharepoint.com/Automation/UPM-DHA/DEV",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointSite"
+          }
+        },
+        "UPM-DHA ResMan API (Secret Name) (clr_UPMDHAResManAPISecretName)": {
+          "defaultValue": "ResMan-Authorization-PRD",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHAResManAPISecretName"
+          }
+        },
+        "UPM-DHA ResMan API (Account ID) (clr_UPMDHAResManAPIAccountID)": {
+          "defaultValue": "2012",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHAResManAPIAccountID"
+          }
+        },
+        "UPM-DHA ResMan API (Base URL) (clr_UPMDHAResManAPIBaseURL)": {
+          "defaultValue": "https://partners-api.myresman.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHAResManAPIBaseURL"
+          }
+        },
+        "UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)": {
+          "defaultValue": "26ac3f0d-5a5d-47cd-a6b8-1e99b9d34b87",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListIntakeForm"
+          }
+        },
+        "UPM-DHA SharePoint List (Transaction Ledger) (clr_UPMDHASharePointListTransactionLedger)": {
+          "defaultValue": "32564330-f178-4869-bda1-75026ed23c6e",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListTransactionLedger"
+          }
+        }
+      },
+      "triggers": {
+        "Recurrence": {
+          "type": "Recurrence",
+          "recurrence": {
+            "frequency": "Day",
+            "interval": 1,
+            "timeZone": "Pacific Standard Time",
+            "startTime": "2026-08-04T02:00:00Z"
+          },
+          "metadata": {
+            "operationMetadataId": "18a25f26-2d35-4670-802b-eaee9c680f81"
+          }
+        }
+      },
+      "actions": {
+        "Fetch_Ledger": {
+          "type": "Scope",
+          "actions": {
+            "Get_ResMan_Secret": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "secretName": "@parameters('UPM-DHA ResMan API (Secret Name) (clr_UPMDHAResManAPISecretName)')"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_keyvault",
+                  "operationId": "GetSecret",
+                  "connectionName": "shared_keyvault"
+                }
+              },
+              "runAfter": {
+                "Previous_Date": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Get_DHA_Residents": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                  "table": "@parameters('UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)')",
+                  "$filter": "TenantName/residencyStatus ne 'Denied' and TenantName/residencyStatus ne 'Cancelled'"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "GetItems",
+                  "connectionName": "shared_sharepointonline"
+                }
+              },
+              "runAfter": {
+                "Get_ResMan_Secret": [
+                  "Succeeded"
+                ]
+              },
+              "runtimeConfiguration": {
+                "paginationPolicy": {
+                  "minimumItemCount": 5000
+                }
+              }
+            },
+            "Each_Resident": {
+              "type": "Foreach",
+              "foreach": "@body('Get_Reident_IDs')",
+              "actions": {
+                "Get_Transactions": {
+                  "type": "Http",
+                  "inputs": {
+                    "uri": "@{parameters('UPM-DHA ResMan API (Base URL) (clr_UPMDHAResManAPIBaseURL)')}/Transactions/Ledger?propertyId=@{item()?['propertyId']}&billingAccountId=@{item()?['billingAccountId']}&postedSince=@{formatDateTime(\r\n  body('Previous_Date'),\r\n  'yyyy-MM-dd'\r\n)}&includeSplitLedgers=true",
+                    "method": "GET",
+                    "headers": {
+                      "ResMan-Account-Id": "@{parameters('UPM-DHA ResMan API (Account ID) (clr_UPMDHAResManAPIAccountID)')}",
+                      "Accept": "application/json",
+                      "Content-Type": "application/json",
+                      "Authorization": "Basic @{outputs('Get_ResMan_Secret')?['body/value']}"
+                    }
+                  },
+                  "runtimeConfiguration": {
+                    "contentTransfer": {
+                      "transferMode": "Chunked"
+                    }
+                  }
+                },
+                "Each_Transaction": {
+                  "type": "Foreach",
+                  "foreach": "@body('Get_Transactions')?['transactions']",
+                  "actions": {
+                    "Create_Transaction": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                          "table": "@parameters('UPM-DHA SharePoint List (Transaction Ledger) (clr_UPMDHASharePointListTransactionLedger)')",
+                          "item/Title": "@item()?['transactionId']",
+                          "item/TenantName/Id": "@items('Each_Resident')?['tenantId']",
+                          "item/date": "@item()?['date']",
+                          "item/transactionType": "@item()?['type']",
+                          "item/CategoryName": "@item()?['category']?['name']",
+                          "item/Amount": "@item()?['amount']",
+                          "item/PaymentMethod": "@item()?['method']",
+                          "item/DateReversed": "@item()?['dateReversed']",
+                          "item/Description": "@item()?['description']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "operationId": "PostItem",
+                          "connectionName": "shared_sharepointonline"
+                        }
+                      }
+                    },
+                    "Clear_Error": {
+                      "type": "Compose",
+                      "inputs": "This doesn't do anything, just here to help clear any error",
+                      "runAfter": {
+                        "Create_Transaction": [
+                          "Failed"
+                        ]
+                      }
+                    }
+                  },
+                  "runAfter": {
+                    "Get_Transactions": [
+                      "Succeeded"
+                    ]
+                  }
+                }
+              },
+              "runAfter": {
+                "Get_Reident_IDs": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Get_Reident_IDs": {
+              "type": "Select",
+              "inputs": {
+                "from": "@outputs('Get_DHA_Residents')?['body/value']",
+                "select": {
+                  "propertyId": "@item()?['Tenant_x0020_Name_x003a__x0020_p1/Value']",
+                  "billingAccountId": "@item()?['Tenant_x0020_Name_x003a__x0020_b/Value']",
+                  "tenantId": "@item()?['TenantName/Id']"
+                }
+              },
+              "runAfter": {
+                "Get_DHA_Residents": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Previous_Date": {
+              "type": "Expression",
+              "kind": "ConvertTimeZone",
+              "inputs": {
+                "baseTime": "@addDays(utcNow(), -1)",
+                "sourceTimeZone": "UTC",
+                "destinationTimeZone": "UTC",
+                "formatString": "u"
+              }
+            }
+          },
+          "runAfter": {}
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

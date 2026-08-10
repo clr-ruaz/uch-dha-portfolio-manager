@@ -1,0 +1,11 @@
+<environmentvariabledefinition schemaname="clr_UPMDHAResManWebURL">
+  <defaultvalue>https://upsidepm.myresman.com</defaultvalue>
+  <displayname default="UPM-DHA ResMan Web (URL)">
+    <label description="UPM-DHA ResMan Web (URL)" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

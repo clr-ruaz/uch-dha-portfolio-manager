@@ -1,0 +1,141 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline-1": {
+        "api": {
+          "name": "shared_sharepointonline"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UPMDHASharePointConnection"
+        },
+        "runtimeSource": "embedded"
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "manual": {
+          "type": "Request",
+          "kind": "Http",
+          "inputs": {
+            "triggerAuthenticationType": "All",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Site Address": {
+                    "type": "string"
+                  },
+                  "Method": {
+                    "type": "string"
+                  },
+                  "Output": {
+                    "type": "string"
+                  },
+                  "Uri": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "Method",
+                  "Uri"
+                ]
+              }
+            }
+          },
+          "metadata": {
+            "operationMetadataId": "c427ec84-5009-4118-b0c8-3d9e6b190f2c"
+          }
+        }
+      },
+      "actions": {
+        "Response": {
+          "type": "Response",
+          "kind": "Http",
+          "inputs": {
+            "statusCode": 200,
+            "body": "@if(\r\n    empty(string(last(body('SharePoint_Request')))),\r\n    '',\r\n    if(\r\n        empty(\r\n            string(\r\n                last(triggerBody())?['Output']\r\n            )\r\n        ),\r\n        if(\r\n            empty(string(last(body('SharePoint_Request'))?['d']?['results'])),\r\n            removeProperty(\r\n                removeProperty(\r\n                    removeProperty(\r\n                        removeProperty(\r\n                            removeProperty(\r\n                                removeProperty(\r\n                                    removeProperty(\r\n                                        removeProperty(\r\n                                            removeProperty(\r\n                                                removeProperty(\r\n                                                    removeProperty(\r\n                                                        removeProperty(\r\n                                                            removeProperty(\r\n                                                                removeProperty(\r\n                                                                    removeProperty(\r\n                                                                        removeProperty(\r\n                                                                            removeProperty(\r\n                                                                                removeProperty(\r\n                                                                                    removeProperty(\r\n                                                                                        removeProperty(\r\n                                                                                            removeProperty(\r\n                                                                                                last(body('SharePoint_Request'))?['d'],\r\n                                                                                                'ComplianceAssetId'\r\n                                                                                            ),\r\n                                                                                            'OData__ColorTag'\r\n                                                                                        ),\r\n                                                                                        'ContentTypeId'\r\n                                                                                    ),\r\n                                                                                    'ServerRedirectedEmbedUrl'\r\n                                                                                ),\r\n                                                                                'ServerRedirectedEmbedUri'\r\n                                                                            ),\r\n                                                                            'FileSystemObjectType'\r\n                                                                        ),\r\n                                                                        'Versions'\r\n                                                                    ),\r\n                                                                    'Properties'\r\n                                                                ),\r\n                                                                'ParentList'\r\n                                                            ),\r\n                                                            'LikedByInformation'\r\n                                                        ),\r\n                                                        'Folder'\r\n                                                    ),\r\n                                                    'File'\r\n                                                ),\r\n                                                'FieldValuesForEdit'\r\n                                            ),\r\n                                            'FieldValuesAsText'\r\n                                        ),\r\n                                        'FieldValuesAsHtml'\r\n                                    ),\r\n                                    'GetDlpPolicyTip'\r\n                                ),\r\n                                'ContentType'\r\n                            ),\r\n                            'AttachmentFiles'\r\n                        ),\r\n                        'RoleAssignments'\r\n                    ),\r\n                    'FirstUniqueAncestorSecurableObject'\r\n                ),\r\n                '__metadata'\r\n            ),\r\n            last(body('SharePoint_Request'))?['d']\r\n        ),\r\n        if(\r\n            empty(string(last(body('SharePoint_Request'))?['d']?['results'])),\r\n            last(body('SharePoint_Request'))?['d']?[\r\n                last(triggerBody())?['Output']\r\n            ],\r\n            first(last(body('SharePoint_Request'))?['d']?['results'])?[\r\n                last(triggerBody())?['Output']\r\n            ]\r\n        )\r\n    )\r\n)"
+          },
+          "runAfter": {
+            "Each_Request": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "1a9365a3-d40f-429d-820b-12ef5d644f6c"
+          }
+        },
+        "Init_Request_Output": {
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "strRequestOutput",
+                "type": "string"
+              }
+            ]
+          },
+          "runAfter": {}
+        },
+        "Each_Request": {
+          "type": "Foreach",
+          "foreach": "@triggerBody()",
+          "actions": {
+            "SharePoint_Request": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "@items('Each_Request')?['Site Address']",
+                  "parameters/method": "@items('Each_Request')?['Method']",
+                  "parameters/uri": "@if(\n  not(empty(variables('strRequestOutput'))),\n  if(\n    contains(\n      string(items('Each_Request')?['Uri']),\n      '_replace_with_previous_output_'\n    ),\n    replace(\n      items('Each_Request')?['Uri'],\n      '_replace_with_previous_output_',\n      variables('strRequestOutput')\n    ),\n    items('Each_Request')?['Uri']\n  ),\n  items('Each_Request')?['Uri']\n)",
+                  "parameters/headers": "@if(\n  not(empty(variables('strRequestOutput'))),\n  if(\n    contains(\n      string(items('Each_Request')?['Headers']),\n      '_replace_with_previous_output_'\n    ),\n    json(\n      replace(\n        string(items('Each_Request')?['Headers']),\n        '_replace_with_previous_output_',\n        variables('strRequestOutput')\n      )\n    ),\n    items('Each_Request')?['Headers']\n  ),\n  items('Each_Request')?['Headers']\n)",
+                  "parameters/body": "@if(\n  not(empty(variables('strRequestOutput'))),\n  if(\n    contains(\n      string(items('Each_Request')?['Body']),\n      '_replace_with_previous_output_'\n    ),\n    json(\n      replace(\n        string(items('Each_Request')?['Body']),\n        '_replace_with_previous_output_',\n        variables('strRequestOutput')\n      )\n    ),\n    items('Each_Request')?['Body']\n  ),\n  items('Each_Request')?['Body']\n)"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "HttpRequest",
+                  "connectionName": "shared_sharepointonline-1"
+                },
+                "retryPolicy": {
+                  "type": "none"
+                }
+              }
+            },
+            "Set_Request_Output": {
+              "type": "SetVariable",
+              "description": "I didn't use loop here because nested removeProperty() performs faster",
+              "inputs": {
+                "name": "strRequestOutput",
+                "value": "@if(\r\n    empty(\r\n        string(\r\n            items('Each_Request')?['Output']\r\n        )\r\n    ),\r\n    '',\r\n    if(\r\n      empty(string(body('SharePoint_Request')?['d']?['results'])),\r\n      string(\r\n          body('SharePoint_Request')?['d']?[\r\n              items('Each_Request')?['Output']\r\n          ]\r\n      ),\r\n      string(\r\n          first(body('SharePoint_Request')?['d']?['results'])?[\r\n              items('Each_Request')?['Output']\r\n          ]\r\n      )\r\n    )\r\n)"
+              },
+              "runAfter": {
+                "SharePoint_Request": [
+                  "Succeeded"
+                ]
+              }
+            }
+          },
+          "runAfter": {
+            "Init_Request_Output": [
+              "Succeeded"
+            ]
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

@@ -1,0 +1,11 @@
+<environmentvariabledefinition schemaname="clr_UPMDHAResManAPIAccountID">
+  <defaultvalue>2012</defaultvalue>
+  <displayname default="UPM-DHA ResMan API (Account ID)">
+    <label description="UPM-DHA ResMan API (Account ID)" languagecode="1033" />
+  </displayname>
+  <introducedversion>0.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>
