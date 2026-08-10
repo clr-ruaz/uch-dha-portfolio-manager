@@ -2,70 +2,48 @@
 
 ## Overview
 
-The **UPM DHA Dashboard** repository contains the source code and documentation for the UPM DHA Dashboard solution.
+The UPM DHA Dashboard repository contains the Dallas Housing Authority portfolio-management solution and its supporting integrations. It is a monorepo: each delivery component has its own runtime, dependencies, and release process while sharing solution configuration and documentation.
 
-This repository is organized as a **monorepo**, with multiple independent projects maintained under a single Git repository. Each project has its own source code, configuration, dependencies, and build process while sharing a common repository for version control and documentation.
-
-## Repository Structure
+## Repository structure
 
 ```text
 UPM DHA Dashboard/
-│
-├── .gitignore
-├── README.md
-│
+├── discovery/                         # Discovery artifacts
+├── docs/                              # Solution-level documentation
 ├── src/
-│   ├── azure-functions/
-│   │   ├── function_app.py
-│   │   ├── host.json
-│   │   ├── local.settings.json
-│   │   └── requirements.txt
-│   │
+│   ├── azure-functions/               # Python HTTP API for document processing
+│   ├── powerplatform/DallasHousingAuthority/
+│   │   └── src/                       # Unpacked Power Platform solution
 │   └── sharepoint/
-│       └── spfx/
-│           ├── package.json
-│           ├── gulpfile.js
-│           ├── tsconfig.json
-│           └── README.md
-│
-└── docs/
-    └── Project documentation
+│       ├── provisioning/              # PnP PowerShell schema export/import tooling
+│       └── spfx/                      # DHA Portfolio Manager SPFx package
+├── LICENSE
+├── README.md
+└── SECURITY.md
 ```
 
----
+## Components
 
-# Components
+### Azure Functions API
 
-## Azure Functions
+Location: `src/azure-functions/`
 
-**Location**
+Python Azure Functions v4 app using the decorator-based `FunctionApp` model. `function_app.py` provides function-key-protected HTTP endpoints for document and presentation operations:
 
-```text
-src/azure-functions/
-```
+| Route | Purpose |
+| --- | --- |
+| `DqsExtractZip` | Extract ZIP archive entries as Base64 payloads. |
+| `DqsConvertCsvToXlsx` | Convert CSV content into XLSX, with optional headers and table formatting. |
+| `DqsSplitPdf` | Split a PDF into one Base64-encoded file per page. |
+| `DqsFillPpt` | Populate and insert PowerPoint slides from structured content. |
+| `DqsStrToDoc` | Convert structured text content into a Word document. |
+| `DqsExtractPpt` | Extract PowerPoint presentation content. |
+| `DqsRegEx` | Perform bounded regular-expression operations. |
+| `DqsReplaceTxtInPpt` | Replace text in a PowerPoint presentation. |
 
-This folder contains a Python Azure Functions app built with Azure Functions v4 and the decorator-based `FunctionApp` model.
+Key files: `function_app.py`, `host.json`, and `requirements.txt`. `local.settings.json` is local-only configuration and must not contain committed secrets.
 
-Key files:
-
-* `function_app.py` - contains HTTP-triggered functions.
-* `host.json` - Azure Functions host configuration.
-* `requirements.txt` - Python package dependencies.
-* `local.settings.json` - local environment settings for development.
-
-Current HTTP-triggered routes implemented in `function_app.py` include:
-
-* `DqsExtractZip` — extracts ZIP archives and returns file entries as base64 payloads.
-* `DqsConvertCsvToXlsx` — converts CSV content into XLSX format with optional header and table formatting.
-* `DqsSplitPdf` — splits a PDF into individual page files encoded as base64.
-
-Dependencies include `azure-functions`, `beautifulsoup4`, `markdown2`, `openpyxl`, `pypandoc`, `PyPDF2`, `python-pptx`, and `python-docx`.
-
-> **Note**
->
-> `local.settings.json` contains local development secrets and settings. Do not commit this file to source control.
-
-Local development:
+Run locally:
 
 ```powershell
 cd src/azure-functions
@@ -75,177 +53,57 @@ pip install -r requirements.txt
 func start
 ```
 
-Use `func start` to launch the local Azure Functions runtime and test the HTTP routes defined in `function_app.py`.
+### SharePoint Framework (SPFx)
 
----
+Location: `src/sharepoint/spfx/`
 
-## SharePoint Framework (SPFx)
-
-**Location**
-
-```text
-src/sharepoint/spfx/
-```
-
-This folder contains a SharePoint Framework project for the **DHA Portfolio Manager** solution.
-
-Project details:
-
-* SPFx version `1.21.1`
-* React `17.0.1`
-* Package name: `dha-portfolio-manager-spap`
-* Supports a modern web part and a single part app page experience
-
-Key files:
-
-* `package.json` — project dependencies and build scripts
-* `gulpfile.js` — SPFx build tasks
-* `tsconfig.json` — TypeScript compiler configuration
-* `config/serve.json` — local serving configuration
-* `sharepoint/solution/` — generated package output
-
-Build and package commands:
+The DHA Portfolio Manager SPFx project (`dha-portfolio-manager-spap`) supports a modern web part and a single-part app page experience. It uses SPFx `1.21.1` and React `17.0.1`; generated deployment packages are written to `sharepoint/solution/`.
 
 ```powershell
 cd src/sharepoint/spfx
 npm install
 npm run build
 npm run package-solution
-```
-
-Local development:
-
-```powershell
-cd src/sharepoint/spfx
-npm install
+# Local SharePoint workbench development
 npm run serve
 ```
 
-Update `config/serve.json` if needed to point to your local SharePoint workbench or development site URL.
+Upload the generated `.sppkg` file from `src/sharepoint/spfx/sharepoint/solution/` to the SharePoint App Catalog. See `src/sharepoint/spfx/README.md` for the component-specific details.
 
-The deployable SharePoint package is generated under `src/sharepoint/spfx/sharepoint/solution/`.
+### Power Platform Solution
 
-Deploy to the SharePoint App Catalog:
+Location: `src/powerplatform/DallasHousingAuthority/`
 
-1. Build and package the solution:
+`DallasHousingAuthority.cdsproj` is the Power Platform solution project. Its unpacked `src/` directory contains cloud workflow definitions, solution customizations, and environment-variable definitions for SharePoint, ResMan, Azure Functions, Azure OpenAI, notifications, and related integration settings.
+
+### SharePoint Schema Provisioning
+
+Location: `src/sharepoint/provisioning/`
+
+PnP PowerShell scripts export SharePoint list and selected document-library schemas and import them into an existing target site. The tooling includes configuration examples, a generated PnP template, and an inventory report. Before applying changes, configure a local `sharepoint-list-schema-config.json` file and run the import with `-WhatIf`.
 
 ```powershell
-cd src/sharepoint/spfx
-npm install
-npm run package-solution
+cd src/sharepoint/provisioning
+./Export-SharePointListSchema.ps1
+./Import-SharePointListSchema.ps1 -WhatIf
 ```
 
-2. Upload the generated `.sppkg` file from `src/sharepoint/spfx/sharepoint/solution/` to your tenant App Catalog.
-3. If the package is tenant-deployable, enable tenant-wide deployment; otherwise add the app to the target site.
-4. Add the app to the target site, then add the web part or single part app page to a SharePoint page.
+See `src/sharepoint/provisioning/README.md` for authentication requirements, configuration fields, and safe import guidance.
 
-For more details, see `src/sharepoint/spfx/README.md`.
+## Prerequisites
 
----
+Install only the tooling needed for the component you are working on:
 
-# Documentation
+- Git and Visual Studio Code
+- Node.js and npm for the SPFx project
+- Python and Azure Functions Core Tools for the Functions API
+- PnP.PowerShell for SharePoint schema provisioning
+- Power Platform CLI or Power Apps build tools for packaging and importing the Power Platform solution
 
-Project documentation is stored in:
+## Source control and security
 
-```text
-docs/
-```
+Keep components self-contained and keep solution-level guidance in `docs/`. Do not commit secrets, passwords, API keys, certificates, `local.settings.json`, environment-specific configuration, or dependency/build output such as `node_modules`.
 
-Suggested documentation includes:
-
-* Solution architecture
-* Development guide
-* Environment configuration
-* Troubleshooting
-* Release notes
-
----
-
-# Development Prerequisites
-
-Depending on the project being developed, the following tools may be required:
-
-* Git
-* Visual Studio Code
-* Node.js and npm
-* SharePoint Framework toolchain
-* Azure Functions Core Tools
-* Azure CLI
-* Microsoft 365 CLI (optional)
-* PnP PowerShell (optional)
-
-Refer to the documentation in the `docs` folder for detailed setup instructions.
-
----
-
-# Source Control Guidelines
-
-## Repository
-
-This repository contains multiple independent projects organized within a single Git repository.
-
-Projects should remain self-contained, with their own configuration and dependencies.
-
-## Do Not Commit
-
-The following items should not be committed:
-
-* Secrets
-* Passwords
-* API keys
-* Certificates
-* Environment-specific configuration
-* Build output
-* `node_modules`
-* `local.settings.json`
-
----
-
-# Recommended Branch Strategy
-
-| Branch      | Purpose                   |
-| ----------- | ------------------------- |
-| `main`      | Production-ready code     |
-| `develop`   | Active integration branch |
-| `feature/*` | New features              |
-| `bugfix/*`  | Bug fixes                 |
-| `hotfix/*`  | Production fixes          |
-
----
-
-# Repository Conventions
-
-* Keep each project self-contained.
-* Store solution-level documentation in the `docs` folder.
-* Keep repository-level configuration in the repository root.
-* Follow consistent commit messages and branching practices.
-
----
-
-# Getting Started
-
-Clone the repository:
-
-```bash
-git clone <repository-url>
-```
-
-Navigate to the repository:
-
-```bash
-cd "UPM DHA Dashboard"
-```
-
-Open the repository in Visual Studio Code:
-
-```bash
-code .
-```
-
-Refer to the documentation for project-specific setup instructions.
-
----
-
-# License
+## License
 
 This repository is intended for internal development and maintenance of the UPM DHA Dashboard solution unless otherwise specified.
