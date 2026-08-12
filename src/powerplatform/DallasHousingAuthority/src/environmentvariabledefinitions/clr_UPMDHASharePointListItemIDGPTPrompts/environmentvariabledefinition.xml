@@ -1,7 +1,7 @@
 <environmentvariabledefinition schemaname="clr_UPMDHASharePointListItemIDGPTPrompts">
   <defaultvalue>3</defaultvalue>
-  <displayname default="UPM-DHA SharePoint List Item (ID | GPT Prompts)">
-    <label description="UPM-DHA SharePoint List Item (ID | GPT Prompts)" languagecode="1033" />
+  <displayname default="UPM-DHA SharePoint List Item (DHA Config | ID | Balance Analysis)">
+    <label description="UPM-DHA SharePoint List Item (DHA Config | ID | Balance Analysis)" languagecode="1033" />
   </displayname>
   <introducedversion>1.0.0.2</introducedversion>
   <iscustomizable>1</iscustomizable>

@@ -1,0 +1,476 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline-1": {
+        "api": {
+          "name": "shared_sharepointonline"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UPMDHASharePointConnection"
+        },
+        "runtimeSource": "embedded"
+      },
+      "shared_office365-1": {
+        "api": {
+          "name": "shared_office365"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UCHAVPO365OutlookConnection"
+        },
+        "runtimeSource": "embedded"
+      },
+      "shared_keyvault-1": {
+        "api": {
+          "name": "shared_keyvault"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UPMDHAAzureVaultConnection"
+        },
+        "runtimeSource": "embedded"
+      },
+      "shared_sharepointonline": {
+        "api": {
+          "name": "shared_sharepointonline"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UCHAVPSharePointConnection"
+        },
+        "runtimeSource": "embedded"
+      },
+      "shared_office365users": {
+        "api": {
+          "name": "shared_office365users"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UPMDHAO365UserConnection"
+        },
+        "runtimeSource": "embedded"
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)": {
+          "defaultValue": "https://upsidecapitalholdings.sharepoint.com/Automation/UPM-DHA/DEV",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointSite"
+          }
+        },
+        "UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)": {
+          "defaultValue": "26ac3f0d-5a5d-47cd-a6b8-1e99b9d34b87",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListIntakeForm"
+          }
+        },
+        "UPM-DHA Azure Function (Secret | RegEx) (clr_UPMDHAAzureFunctionSecretRegEx)": {
+          "defaultValue": "UCH-AzureFunction-RegEx-Code-PRD",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHAAzureFunctionSecretRegEx"
+          }
+        },
+        "UPM-DHA Azure Function (Based URL) (clr_UPMDHAAzureFunctionBasedURL)": {
+          "defaultValue": "https://uch-utilities-dmgadbayg4hahufr.eastus-01.azurewebsites.net",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHAAzureFunctionBasedURL"
+          }
+        },
+        "UPM-DHA SharePoint List Item (DHA Config | ID | Balance Analysis) (clr_UPMDHASharePointListItemIDGPTPrompts)": {
+          "defaultValue": "3",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListItemIDGPTPrompts"
+          }
+        },
+        "UPM-DHA SharePoint List (DHA Configuration) (clr_UPMDHASharePointListDHAConfiguration)": {
+          "defaultValue": "c2fbcd64-f61c-40fe-b9d8-320d486769a7",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListDHAConfiguration"
+          }
+        },
+        "UPM-DHA GitHub API (Base URL) (clr_UPMDHAGitHubAPIBaseURL)": {
+          "defaultValue": "https://api.github.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHAGitHubAPIBaseURL"
+          }
+        },
+        "UPM-DHA Notification (Balance | From) (clr_UPMDHANotificationBalanceFrom)": {
+          "defaultValue": "chris@upsidecapitalholdings.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHANotificationBalanceFrom"
+          }
+        },
+        "UPM-DHA Notification (Balance | Byline) (clr_UPMDHANotificationBalanceByline)": {
+          "defaultValue": "<p>Warm regards,</p> <p> <strong>Riska Noviyanti</strong><br/> EA | Upside Property Management LLC<br/> P: (972) 833-4489<br/> E: riska@upsidecapitalholdings.com<br/> </p> <p style='font-size:11px; color:#666666'> This email and any attachments may contain confidential and/or proprietary information belonging to Upside Capital Holdings, or its affiliated entities. The information is intended solely for the use of the individual or entity to whom it is addressed. If you are not the intended recipient, please be advised that any unauthorized review, use, disclosure, distribution, or copying of this communication is strictly prohibited. If you have received this email in error, please notify the sender immediately and delete this message from your system. </p> <p style='font-size:11px; color:#666666'> Any views or opinions expressed in this communication are those of the sender and do not necessarily reflect those of the company, unless explicitly stated. While we take reasonable precautions to ensure this email is free of viruses or malicious content, we recommend that you verify attachments before opening. Upside Capital Holdings and its affiliates accept no liability for any damage caused by this email or its attachments. </p>",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHANotificationBalanceByline"
+          }
+        },
+        "UPM-DHA Notification (Byline) (clr_UPMDHANotificationByline)": {
+          "defaultValue": "<p class=\"editor-paragraph\">Thanks,</p><p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">DHA Tracker Automation</strong></b><br><i><em class=\"editor-text-italic\">Automated Notification</em></i></p>",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHANotificationByline"
+          }
+        },
+        "UPM-DHA Notification (From) (clr_UPMDHANotificationFrom)": {
+          "defaultValue": "chris@upsidecapitalholdings.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHANotificationFrom"
+          }
+        },
+        "UPM-DHA Notification (Balance | CC) (clr_UPMDHANotificationBalanceCC)": {
+          "defaultValue": "chris@upsidecapitalholdings.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHANotificationBalanceCC"
+          }
+        }
+      },
+      "triggers": {
+        "Recurrence": {
+          "type": "Recurrence",
+          "recurrence": {
+            "frequency": "Week",
+            "interval": 1,
+            "timeZone": "Pacific Standard Time",
+            "startTime": "2026-08-10T02:00:00Z",
+            "schedule": {
+              "weekDays": [
+                "Monday",
+                "Tuesday",
+                "Wednesday",
+                "Thursday",
+                "Friday"
+              ],
+              "hours": [
+                "9"
+              ]
+            }
+          },
+          "metadata": {
+            "operationMetadataId": "07bc2333-4ee3-4ab0-a48b-14d0180271ec"
+          }
+        }
+      },
+      "actions": {
+        "Email_Schedule": {
+          "type": "If",
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@or(\r\n  and(\r\n    lessOrEquals(dayOfMonth(utcNow()), 3),\r\n    equals(\r\n      dayOfWeek(utcNow()),\r\n      if(\r\n        equals(dayOfWeek(startOfMonth(utcNow())), 0),\r\n        1,\r\n        if(\r\n          equals(dayOfWeek(startOfMonth(utcNow())), 6),\r\n          1,\r\n          dayOfWeek(startOfMonth(utcNow()))\r\n        )\r\n      )\r\n    )\r\n  ),\r\n  and(\r\n    equals(dayOfWeek(utcNow()), 1),\r\n    greaterOrEquals(dayOfMonth(utcNow()), 15),\r\n    lessOrEquals(dayOfMonth(utcNow()), 28)\r\n  )\r\n)",
+                  "@true"
+                ]
+              }
+            ]
+          },
+          "actions": {
+            "Tenant_Details": {
+              "type": "Scope",
+              "actions": {
+                "Get_DHA_Tenants": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                      "table": "@parameters('UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)')",
+                      "$filter": "Balance gt 0 and DHAStatus eq 'Active'"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "operationId": "GetItems",
+                      "connectionName": "shared_sharepointonline-1"
+                    }
+                  },
+                  "runAfter": {
+                    "LLM_Analysis_URL": [
+                      "Succeeded"
+                    ]
+                  },
+                  "runtimeConfiguration": {
+                    "paginationPolicy": {
+                      "minimumItemCount": 5000
+                    }
+                  }
+                },
+                "Each_Tenant": {
+                  "type": "Foreach",
+                  "foreach": "@body('DHA_Tenants')",
+                  "actions": {
+                    "HTTP_Extract_Email": {
+                      "type": "Http",
+                      "inputs": {
+                        "uri": "@{parameters('UPM-DHA Azure Function (Based URL) (clr_UPMDHAAzureFunctionBasedURL)')}/api/DqsRegEx?code=@{outputs('Get_Utility_Secret')?['body/value']}",
+                        "method": "POST",
+                        "body": {
+                          "mode": "match",
+                          "regular_expression": "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}",
+                          "flag": "IGNORECASE",
+                          "original_text": "@item()?['CaseworkerContact']"
+                        }
+                      },
+                      "runtimeConfiguration": {
+                        "contentTransfer": {
+                          "transferMode": "Chunked"
+                        }
+                      }
+                    },
+                    "Valid_CW_Email": {
+                      "type": "If",
+                      "expression": {
+                        "and": [
+                          {
+                            "equals": [
+                              "@empty(string(body('HTTP_Extract_Email')?['matches']?[0]?['match']))",
+                              "@false"
+                            ]
+                          }
+                        ]
+                      },
+                      "actions": {
+                        "Xform_MD_to_HTML": {
+                          "type": "Http",
+                          "inputs": {
+                            "uri": "@{parameters('UPM-DHA GitHub API (Base URL) (clr_UPMDHAGitHubAPIBaseURL)')}/markdown",
+                            "method": "POST",
+                            "body": {
+                              "text": "@items('Each_Tenant')?['BalanceMD']",
+                              "mode": "gfm"
+                            }
+                          },
+                          "metadata": {
+                            "operationMetadataId": "f2dfc5d8-7fee-4450-ba1c-0517b21c3e2f"
+                          }
+                        },
+                        "Create_Draft_Email": {
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "Uri": "https://graph.microsoft.com/v1.0/users/@{parameters('UPM-DHA Notification (Balance | From) (clr_UPMDHANotificationBalanceFrom)')}/messages",
+                              "Method": "POST",
+                              "Body": "{\n  \"subject\": \"Outstanding Balance | @{items('Each_Tenant')?['Tenant_x0020_Name_x003a__x0020_p/Value']} #@{items('Each_Tenant')?['Tenant_x0020_Name_x003a__x0020_u/Value']} @{items('Each_Tenant')?['TenantName/Value']}\",\n  \"body\": {\n    \"contentType\": \"HTML\",\n    \"content\": \"@{outputs('Email_HTML_Body')}\"\n  },\n  \"toRecipients\": [\n    {\n      \"emailAddress\": {\n        \"address\": \"@{body('HTTP_Extract_Email')?['matches']?[0]?['match']}\"\n      }\n    }\n  ]\n}",
+                              "ContentType": "application/json"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                              "operationId": "HttpRequest",
+                              "connectionName": "shared_office365-1"
+                            }
+                          },
+                          "runAfter": {
+                            "Email_HTML_Body": [
+                              "Succeeded"
+                            ]
+                          }
+                        },
+                        "Email_HTML_Body": {
+                          "type": "Compose",
+                          "inputs": "<style>\nth, td {\n    padding: 2px 16px 2px 8px;;\n}\n</style>\n<p>Hi @{split( items('Each_Tenant')?['CaseworkerName'], ' ' )?[0]},</p><p>I hope you're doing well.</p><p>The following table summarizes the outstanding charges for <strong>@{items('Each_Tenant')?['TenantName/Value']}</strong> as of <strong>@{formatDateTime(\n  utcNow(),\n  'MMM dd, yyyy'\n)}</strong>.@{replace(\r\n  body('Xform_MD_to_HTML'),\r\n  '\"',\r\n  ''''\r\n)}</p><p>Could you please provide an update on the <b><strong>payment status</strong></b> for this balance? If payment has already been submitted or is currently being processed, please let me know the expected payment date.</p><p>Thank you for your assistance, and please let me know if you need any additional information.</p>@{parameters('UPM-DHA Notification (Balance | Byline) (clr_UPMDHANotificationBalanceByline)')}",
+                          "runAfter": {
+                            "Xform_MD_to_HTML": [
+                              "Succeeded"
+                            ]
+                          }
+                        },
+                        "Increment_Counter": {
+                          "type": "IncrementVariable",
+                          "inputs": {
+                            "name": "intDraftEmail_Count",
+                            "value": 1
+                          },
+                          "runAfter": {
+                            "Create_Draft_Email": [
+                              "Succeeded"
+                            ]
+                          }
+                        }
+                      },
+                      "else": {
+                        "actions": {}
+                      },
+                      "runAfter": {
+                        "HTTP_Extract_Email": [
+                          "Succeeded"
+                        ]
+                      }
+                    }
+                  },
+                  "runAfter": {
+                    "Get_Utility_Secret": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "DHA_Tenants": {
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@outputs('Get_DHA_Tenants')?['body/value']",
+                    "where": "@equals(and(\r\n  not(empty(string(item()?['CaseworkerName']))),\r\n  not(empty(string(item()?['CaseworkerContact']))),\r\n  not(empty(string(item()?['BalanceMD'])))\r\n),true)"
+                  },
+                  "runAfter": {
+                    "Get_DHA_Tenants": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Get_Utility_Secret": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "secretName": "@parameters('UPM-DHA Azure Function (Secret | RegEx) (clr_UPMDHAAzureFunctionSecretRegEx)')"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_keyvault",
+                      "operationId": "GetSecret",
+                      "connectionName": "shared_keyvault-1"
+                    }
+                  },
+                  "runAfter": {
+                    "DHA_Tenants": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "LLM_Analysis_URL": {
+                  "type": "Workflow",
+                  "inputs": {
+                    "host": {
+                      "workflowReferenceName": "7d4722cf-b06f-f111-ab0d-7c1e525965e1"
+                    },
+                    "body": {
+                      "text": "UPM-DHA LLM Analysis Endpoint"
+                    }
+                  },
+                  "runAfter": {
+                    "Get_System_Prompt": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "aacd64e8-8eaa-41ef-9702-6cee1313472d"
+                  }
+                },
+                "Get_System_Prompt": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+                      "table": "@parameters('UPM-DHA SharePoint List (DHA Configuration) (clr_UPMDHASharePointListDHAConfiguration)')",
+                      "id": "@int(parameters('UPM-DHA SharePoint List Item (DHA Config | ID | Balance Analysis) (clr_UPMDHASharePointListItemIDGPTPrompts)'))"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "operationId": "GetItem",
+                      "connectionName": "shared_sharepointonline"
+                    }
+                  }
+                },
+                "Alert_Reviewer": {
+                  "type": "If",
+                  "expression": {
+                    "and": [
+                      {
+                        "greater": [
+                          "@variables('intDraftEmail_Count')",
+                          0
+                        ]
+                      }
+                    ]
+                  },
+                  "actions": {
+                    "Get_user_profile": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "id": "@parameters('UPM-DHA Notification (Balance | From) (clr_UPMDHANotificationBalanceFrom)')"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365users",
+                          "operationId": "UserProfile_V2",
+                          "connectionName": "shared_office365users"
+                        }
+                      }
+                    },
+                    "Notify_Reviewer": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "emailMessage/MailboxAddress": "@parameters('UPM-DHA Notification (From) (clr_UPMDHANotificationFrom)')",
+                          "emailMessage/To": "@parameters('UPM-DHA Notification (Balance | From) (clr_UPMDHANotificationBalanceFrom)')",
+                          "emailMessage/Subject": "Balance Reminders: @{variables('intDraftEmail_Count')} draft emails are ready for review (@{formatDateTime(\r\n  utcNow(),\r\n  'MMM dd, yyyy'\r\n)})",
+                          "emailMessage/Body": "<p class=\"editor-paragraph\">Hi @{outputs('Get_user_profile')?['body/givenName']},</p><p class=\"editor-paragraph\">The <i><em class=\"editor-text-italic\">draft emails </em></i>to remind Caseworkers about outstanding balances for DHA residents have been generated, per schedule.</p><p class=\"editor-paragraph\">Go to your Outlook's <b><strong class=\"editor-text-bold\">Draft folder</strong></b> to review and action (edit and send) these items.@{parameters('UPM-DHA Notification (Byline) (clr_UPMDHANotificationByline)')}</p>",
+                          "emailMessage/Cc": "@parameters('UPM-DHA Notification (Balance | CC) (clr_UPMDHANotificationBalanceCC)')",
+                          "emailMessage/Importance": "High"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                          "operationId": "SharedMailboxSendEmailV2",
+                          "connectionName": "shared_office365-1"
+                        }
+                      },
+                      "runAfter": {
+                        "Get_user_profile": [
+                          "SUCCEEDED"
+                        ]
+                      }
+                    }
+                  },
+                  "else": {
+                    "actions": {}
+                  },
+                  "runAfter": {
+                    "Each_Tenant": [
+                      "Succeeded"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "actions": {}
+          },
+          "runAfter": {
+            "Init_Draft_Counter": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Init_Draft_Counter": {
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "intDraftEmail_Count",
+                "type": "integer",
+                "value": 0
+              }
+            ]
+          },
+          "runAfter": {}
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

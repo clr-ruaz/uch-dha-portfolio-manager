@@ -1,0 +1,169 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline-1": {
+        "api": {
+          "name": "shared_sharepointonline"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "clr_UPMDHASharePointConnection"
+        },
+        "runtimeSource": "embedded"
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "UPM-DHA SharePoint List Item (DHA Config | ID | Balance Analysis) (clr_UPMDHASharePointListItemIDGPTPrompts)": {
+          "defaultValue": "3",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListItemIDGPTPrompts"
+          }
+        },
+        "UPM-DHA SharePoint List (DHA Configuration) (clr_UPMDHASharePointListDHAConfiguration)": {
+          "defaultValue": "c2fbcd64-f61c-40fe-b9d8-320d486769a7",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListDHAConfiguration"
+          }
+        },
+        "UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)": {
+          "defaultValue": "https://upsidecapitalholdings.sharepoint.com/Automation/UPM-DHA/DEV",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointSite"
+          }
+        },
+        "UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)": {
+          "defaultValue": "26ac3f0d-5a5d-47cd-a6b8-1e99b9d34b87",
+          "type": "String",
+          "metadata": {
+            "schemaName": "clr_UPMDHASharePointListIntakeForm"
+          }
+        }
+      },
+      "triggers": {
+        "When_an_item_is_created_or_modified": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+              "table": "@parameters('UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)')"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "GetOnUpdatedItems",
+              "connectionName": "shared_sharepointonline-1"
+            }
+          },
+          "recurrence": {
+            "interval": 1,
+            "frequency": "Minute"
+          },
+          "conditions": [
+            {
+              "expression": "@not(empty(string(triggerBody()?['ReceivablesJSON'])))"
+            },
+            {
+              "expression": "@empty(string(triggerBody()?['BalanceMD']))"
+            }
+          ],
+          "splitOn": "@triggerOutputs()?['body/value']",
+          "metadata": {
+            "operationMetadataId": "c0ebe3b9-e8ce-4445-bdd3-37caab72c72e"
+          }
+        }
+      },
+      "actions": {
+        "LLM_Analysis_URL": {
+          "type": "Workflow",
+          "inputs": {
+            "host": {
+              "workflowReferenceName": "7d4722cf-b06f-f111-ab0d-7c1e525965e1"
+            },
+            "body": {
+              "text": "UPM-DHA LLM Analysis Endpoint"
+            }
+          },
+          "runAfter": {
+            "Get_System_Prompt": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "aacd64e8-8eaa-41ef-9702-6cee1313472d"
+          }
+        },
+        "POST_LLM_Analysis": {
+          "type": "Http",
+          "inputs": {
+            "uri": "@body('LLM_Analysis_URL')?['callback_url']",
+            "method": "POST",
+            "body": {
+              "System Message": "@outputs('Get_System_Prompt')?['body/Value']",
+              "User Message": "Transactions as of today, @{formatDateTime(\r\n  utcNow(),\r\n  'yyyy-MM-dd'\r\n)}: @{triggerBody()?['ReceivablesJSON']}",
+              "JSON Format": "@false"
+            }
+          },
+          "runAfter": {
+            "LLM_Analysis_URL": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "f2dfc5d8-7fee-4450-ba1c-0517b21c3e2f"
+          }
+        },
+        "Get_System_Prompt": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+              "table": "@parameters('UPM-DHA SharePoint List (DHA Configuration) (clr_UPMDHASharePointListDHAConfiguration)')",
+              "id": "@int(parameters('UPM-DHA SharePoint List Item (DHA Config | ID | Balance Analysis) (clr_UPMDHASharePointListItemIDGPTPrompts)'))"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "GetItem",
+              "connectionName": "shared_sharepointonline-1"
+            }
+          },
+          "runAfter": {}
+        },
+        "Update_item": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
+              "table": "@parameters('UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)')",
+              "id": "@triggerBody()?['ID']",
+              "item/BalanceMD": "@body('POST_LLM_Analysis')?['Response']"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "PatchItem",
+              "connectionName": "shared_sharepointonline-1"
+            }
+          },
+          "runAfter": {
+            "POST_LLM_Analysis": [
+              "Succeeded"
+            ]
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

@@ -1,7 +1,7 @@
 <environmentvariabledefinition schemaname="clr_UPMDHASharePointListItemIDIncompleteDHADetails">
   <defaultvalue>1</defaultvalue>
-  <displayname default="UPM-DHA SharePoint List Item (ID | Incomplete DHA Details)">
-    <label description="UPM-DHA SharePoint List Item (ID | Incomplete DHA Details)" languagecode="1033" />
+  <displayname default="UPM-DHA SharePoint List Item (Data Filters | Inc DHA Details | ID)">
+    <label description="UPM-DHA SharePoint List Item (Data Filters | Inc DHA Details | ID)" languagecode="1033" />
   </displayname>
   <introducedversion>1.0.0.0</introducedversion>
   <iscustomizable>1</iscustomizable>

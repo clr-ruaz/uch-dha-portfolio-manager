@@ -8,10 +8,15 @@
         "$authentication": {
           "defaultValue": {},
           "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
         }
       },
       "triggers": {
         "Recurrence": {
+          "type": "Recurrence",
           "recurrence": {
             "frequency": "Day",
             "interval": 1,
@@ -22,28 +27,28 @@
                 "8",
                 "10",
                 "12",
-                "15",
-                "18"
+                "18",
+                "14",
+                "16"
               ]
             }
           },
           "metadata": {
             "operationMetadataId": "6cd91a86-9223-4d56-8451-b1375dbf1cdb"
-          },
-          "type": "Recurrence"
+          }
         }
       },
       "actions": {
         "Run_a_Child_Flow": {
-          "runAfter": {},
-          "metadata": {
-            "operationMetadataId": "5686bd04-3032-4400-ae76-5b79a5eaa56a"
-          },
           "type": "Workflow",
           "inputs": {
             "host": {
               "workflowReferenceName": "d0890405-df84-f111-ab0f-6045bdd75008"
             }
+          },
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "5686bd04-3032-4400-ae76-5b79a5eaa56a"
           }
         }
       }

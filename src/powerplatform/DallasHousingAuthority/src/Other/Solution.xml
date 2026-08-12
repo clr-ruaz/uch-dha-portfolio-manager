@@ -84,10 +84,11 @@
       <RootComponent type="29" id="{3d1d8d02-327c-f111-ab0e-6045bdd75008}" behavior="0" />
       <RootComponent type="29" id="{3da38efb-d36f-f111-ab0d-7c1e525965e1}" behavior="0" />
       <RootComponent type="29" id="{5308d2f5-bf7e-f111-ab0e-6045bdd75008}" behavior="0" />
-      <RootComponent type="29" id="{5ba6a09c-8991-f111-8075-3833c5eecd2d}" behavior="0" />
       <RootComponent type="29" id="{6121437e-f590-f111-8076-3833c5eecd2d}" behavior="0" />
       <RootComponent type="29" id="{62f6c254-b28f-f111-8076-3833c5eecd2d}" behavior="0" />
+      <RootComponent type="29" id="{7aa5f3b3-af94-f111-8075-3833c5eecd2d}" behavior="0" />
       <RootComponent type="29" id="{7d4722cf-b06f-f111-ab0d-7c1e525965e1}" behavior="0" />
+      <RootComponent type="29" id="{89de40e9-5395-f111-8075-3833c5eecd2d}" behavior="0" />
       <RootComponent type="29" id="{8e3cc303-a96f-f111-ab0d-7c1e525965e1}" behavior="0" />
       <RootComponent type="29" id="{98771a16-c66f-f111-ab0d-7c1e525965e1}" behavior="0" />
       <RootComponent type="29" id="{a70becad-6291-f111-8075-3833c5eecd2d}" behavior="0" />
@@ -98,6 +99,27 @@
       <RootComponent type="29" id="{e87291ee-395f-f111-a826-7c1e525965e1}" behavior="0" />
       <RootComponent type="29" id="{fec372c4-3379-f111-ab0e-6045bdd75008}" behavior="0" />
     </RootComponents>
-    <MissingDependencies />
+    <MissingDependencies>
+      <MissingDependency>
+        <Required type="29" displayName="UPM-DHA Record ResMan Transactions" solution="Active" id="{7a6bb697-0b96-f111-8075-3833c5eecd2d}" />
+        <Dependent type="29" displayName="UPM-DHA Add HAP Resident" id="{3da38efb-d36f-f111-ab0d-7c1e525965e1}" />
+      </MissingDependency>
+      <MissingDependency>
+        <Required type="29" displayName="UPM-DHA Record ResMan Transactions" solution="Active" id="{7a6bb697-0b96-f111-8075-3833c5eecd2d}" />
+        <Dependent type="29" displayName="UPM-DHA Fetch ResMan Transactions" id="{62f6c254-b28f-f111-8076-3833c5eecd2d}" />
+      </MissingDependency>
+      <MissingDependency>
+        <Required type="connectionreference" displayName="clr_UCHAVPSharePointConnection" solution="Active" id.connectionreferencelogicalname="clr_UCHAVPSharePointConnection" />
+        <Dependent type="29" displayName="UPM-DHA Send Caseworker Reminder" id="{7aa5f3b3-af94-f111-8075-3833c5eecd2d}" />
+      </MissingDependency>
+      <MissingDependency>
+        <Required type="EnvironmentVariableDefinition" displayName="clr_UPMDHASharePointListDHAConfiguration" solution="Active" id.schemaname="clr_UPMDHASharePointListDHAConfiguration" />
+        <Dependent type="29" displayName="UPM-DHA Send Caseworker Reminder" id="{7aa5f3b3-af94-f111-8075-3833c5eecd2d}" />
+      </MissingDependency>
+      <MissingDependency>
+        <Required type="EnvironmentVariableDefinition" displayName="clr_UPMDHASharePointListDHAConfiguration" solution="Active" id.schemaname="clr_UPMDHASharePointListDHAConfiguration" />
+        <Dependent type="29" displayName="UPM-DHA Analyze Current Balance" id="{89de40e9-5395-f111-8075-3833c5eecd2d}" />
+      </MissingDependency>
+    </MissingDependencies>
   </SolutionManifest>
 </ImportExportXml>

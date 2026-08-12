@@ -181,6 +181,7 @@
                   "Payments": "@item()?['payments']",
                   "Credits": "@item()?['credits']",
                   "Balance": "@item()?['balance']",
+                  "Transactions": "@item()",
                   "billingAccountId": "@item()?['billingAccountId']"
                 }
               },
@@ -263,7 +264,9 @@
                       "item/Charges": "@body('Match_Receivables')?[0]?['Charges']",
                       "item/Payments": "@body('Match_Receivables')?[0]?['Payments']",
                       "item/Credits": "@body('Match_Receivables')?[0]?['Credits']",
-                      "item/Balance": "@body('Match_Receivables')?[0]?['Balance']"
+                      "item/Balance": "@body('Match_Receivables')?[0]?['Balance']",
+                      "item/ReceivablesJSON": "@body('Match_Receivables')?[0]?['Transactions']",
+                      "item/BalanceMD": "@null"
                     },
                     "host": {
                       "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
@@ -280,7 +283,7 @@
               },
               "runAfter": {
                 "FINAL_Receivables": [
-                  "SUCCEEDED"
+                  "Succeeded"
                 ]
               }
             },
@@ -293,6 +296,7 @@
                   "Payments": "@item()?['Payments']",
                   "Credits": "@item()?['Credits']",
                   "Balance": "@item()?['Balance']",
+                  "Transactions": "@if(\r\n  empty(string(item()?['ReceivablesJSON'])),\r\n  item()?['ReceivablesJSON'],\r\n  json(item()?['ReceivablesJSON'])\r\n)",
                   "billingAccountId": "@item()?['Tenant_x0020_Name_x003a__x0020_b/Value']",
                   "sharePointListId": "@item()?['ID']"
                 }
@@ -307,7 +311,7 @@
               "type": "Query",
               "inputs": {
                 "from": "@body('UPD_Receivables')",
-                "where": "@equals(or(\r\n  not(empty(string(item()?['Charges']))),\r\n  not(empty(string(item()?['Payments']))),\r\n  not(empty(string(item()?['Credits']))),\r\n  not(empty(string(item()?['Balance'])))\r\n),true)"
+                "where": "@equals(if(\r\n  and(\r\n    empty(string(item()?['Charges'])),\r\n    empty(string(item()?['Payments'])),\r\n    empty(string(item()?['Credits'])),\r\n    empty(string(item()?['Balance']))\r\n  ),\r\n  contains(\r\n    body('RSM_Receivables_Ids'),\r\n    item()?['billingAccountId']\r\n  ),\r\n  true\r\n),true)"
               },
               "runAfter": {
                 "UPD_Receivables": [

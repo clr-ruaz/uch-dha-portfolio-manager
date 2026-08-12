@@ -1,0 +1,11 @@
+<environmentvariabledefinition schemaname="clr_UPMDHANotificationBalanceByline">
+  <defaultvalue>&lt;p&gt;Warm regards,&lt;/p&gt; &lt;p&gt; &lt;strong&gt;Riska Noviyanti&lt;/strong&gt;&lt;br/&gt; EA | Upside Property Management LLC&lt;br/&gt; P: (972) 833-4489&lt;br/&gt; E: riska@upsidecapitalholdings.com&lt;br/&gt; &lt;/p&gt; &lt;p style='font-size:11px; color:#666666'&gt; This email and any attachments may contain confidential and/or proprietary information belonging to Upside Capital Holdings, or its affiliated entities. The information is intended solely for the use of the individual or entity to whom it is addressed. If you are not the intended recipient, please be advised that any unauthorized review, use, disclosure, distribution, or copying of this communication is strictly prohibited. If you have received this email in error, please notify the sender immediately and delete this message from your system. &lt;/p&gt; &lt;p style='font-size:11px; color:#666666'&gt; Any views or opinions expressed in this communication are those of the sender and do not necessarily reflect those of the company, unless explicitly stated. While we take reasonable precautions to ensure this email is free of viruses or malicious content, we recommend that you verify attachments before opening. Upside Capital Holdings and its affiliates accept no liability for any damage caused by this email or its attachments. &lt;/p&gt;</defaultvalue>
+  <displayname default="UPM-DHA Notification (Balance | Byline)">
+    <label description="UPM-DHA Notification (Balance | Byline)" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.2</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

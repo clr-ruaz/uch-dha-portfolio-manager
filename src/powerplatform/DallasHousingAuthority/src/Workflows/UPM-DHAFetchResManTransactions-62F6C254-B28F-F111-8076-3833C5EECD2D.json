@@ -46,32 +46,11 @@
             "schemaName": "clr_UPMDHAResManAPISecretName"
           }
         },
-        "UPM-DHA ResMan API (Account ID) (clr_UPMDHAResManAPIAccountID)": {
-          "defaultValue": "2012",
-          "type": "String",
-          "metadata": {
-            "schemaName": "clr_UPMDHAResManAPIAccountID"
-          }
-        },
-        "UPM-DHA ResMan API (Base URL) (clr_UPMDHAResManAPIBaseURL)": {
-          "defaultValue": "https://partners-api.myresman.com",
-          "type": "String",
-          "metadata": {
-            "schemaName": "clr_UPMDHAResManAPIBaseURL"
-          }
-        },
         "UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)": {
           "defaultValue": "26ac3f0d-5a5d-47cd-a6b8-1e99b9d34b87",
           "type": "String",
           "metadata": {
             "schemaName": "clr_UPMDHASharePointListIntakeForm"
-          }
-        },
-        "UPM-DHA SharePoint List (Transaction Ledger) (clr_UPMDHASharePointListTransactionLedger)": {
-          "defaultValue": "32564330-f178-4869-bda1-75026ed23c6e",
-          "type": "String",
-          "metadata": {
-            "schemaName": "clr_UPMDHASharePointListTransactionLedger"
           }
         }
       },
@@ -117,7 +96,7 @@
                 "parameters": {
                   "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
                   "table": "@parameters('UPM-DHA SharePoint List (Intake Form) (clr_UPMDHASharePointListIntakeForm)')",
-                  "$filter": "TenantName/residencyStatus ne 'Denied' and TenantName/residencyStatus ne 'Cancelled'"
+                  "$filter": "TenantName/residencyStatus ne 'Denied' and \nTenantName/residencyStatus ne 'Cancelled' and \nDHAStatus ne 'Expired'"
                 },
                 "host": {
                   "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
@@ -138,77 +117,31 @@
             },
             "Each_Resident": {
               "type": "Foreach",
-              "foreach": "@body('Get_Reident_IDs')",
+              "foreach": "@body('Resident_Details')",
               "actions": {
-                "Get_Transactions": {
-                  "type": "Http",
+                "Record_Transactions": {
+                  "type": "Workflow",
                   "inputs": {
-                    "uri": "@{parameters('UPM-DHA ResMan API (Base URL) (clr_UPMDHAResManAPIBaseURL)')}/Transactions/Ledger?propertyId=@{item()?['propertyId']}&billingAccountId=@{item()?['billingAccountId']}&postedSince=@{formatDateTime(\r\n  body('Previous_Date'),\r\n  'yyyy-MM-dd'\r\n)}&includeSplitLedgers=true",
-                    "method": "GET",
-                    "headers": {
-                      "ResMan-Account-Id": "@{parameters('UPM-DHA ResMan API (Account ID) (clr_UPMDHAResManAPIAccountID)')}",
-                      "Accept": "application/json",
-                      "Content-Type": "application/json",
-                      "Authorization": "Basic @{outputs('Get_ResMan_Secret')?['body/value']}"
-                    }
-                  },
-                  "runtimeConfiguration": {
-                    "contentTransfer": {
-                      "transferMode": "Chunked"
-                    }
-                  }
-                },
-                "Each_Transaction": {
-                  "type": "Foreach",
-                  "foreach": "@body('Get_Transactions')?['transactions']",
-                  "actions": {
-                    "Create_Transaction": {
-                      "type": "OpenApiConnection",
-                      "inputs": {
-                        "parameters": {
-                          "dataset": "@parameters('UPM-DHA SharePoint Site (clr_UPMDHASharePointSite)')",
-                          "table": "@parameters('UPM-DHA SharePoint List (Transaction Ledger) (clr_UPMDHASharePointListTransactionLedger)')",
-                          "item/Title": "@item()?['transactionId']",
-                          "item/TenantName/Id": "@items('Each_Resident')?['tenantId']",
-                          "item/date": "@item()?['date']",
-                          "item/transactionType": "@item()?['type']",
-                          "item/CategoryName": "@item()?['category']?['name']",
-                          "item/Amount": "@item()?['amount']",
-                          "item/PaymentMethod": "@item()?['method']",
-                          "item/DateReversed": "@item()?['dateReversed']",
-                          "item/Description": "@item()?['description']"
-                        },
-                        "host": {
-                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
-                          "operationId": "PostItem",
-                          "connectionName": "shared_sharepointonline"
-                        }
-                      }
+                    "host": {
+                      "workflowReferenceName": "7a6bb697-0b96-f111-8075-3833c5eecd2d"
                     },
-                    "Clear_Error": {
-                      "type": "Compose",
-                      "inputs": "This doesn't do anything, just here to help clear any error",
-                      "runAfter": {
-                        "Create_Transaction": [
-                          "Failed"
-                        ]
-                      }
+                    "body": {
+                      "text": "@item()?['propertyId']",
+                      "text_1": "@item()?['billingAccountId']",
+                      "text_2": "@formatDateTime(\n  body('Previous_Date'),\n  'yyyy-MM-dd'\n)",
+                      "text_3": "@outputs('Get_ResMan_Secret')?['body/value']",
+                      "number": "@items('Each_Resident')?['tenantId']"
                     }
-                  },
-                  "runAfter": {
-                    "Get_Transactions": [
-                      "Succeeded"
-                    ]
                   }
                 }
               },
               "runAfter": {
-                "Get_Reident_IDs": [
+                "Resident_Details": [
                   "Succeeded"
                 ]
               }
             },
-            "Get_Reident_IDs": {
+            "Resident_Details": {
               "type": "Select",
               "inputs": {
                 "from": "@outputs('Get_DHA_Residents')?['body/value']",
