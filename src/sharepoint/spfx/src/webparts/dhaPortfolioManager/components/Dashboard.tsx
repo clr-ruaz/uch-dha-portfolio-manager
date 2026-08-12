@@ -693,6 +693,8 @@ export default function Dashboard(
   const balanceDetailsContent = React.useRef<HTMLDivElement>(null);
   const ledgerRequestId = React.useRef(0);
   const ledgerDetailRequestId = React.useRef(0);
+  const balanceDetailsRequestId = React.useRef(0);
+  const balanceDetailsAbortController = React.useRef<AbortController>();
   const [commandBarPinned, setCommandBarPinned] = React.useState(false);
   React.useEffect(() => {
     store("dha-properties", properties);
@@ -1167,15 +1169,23 @@ export default function Dashboard(
   };
   const summarizeTransactions = async (item: Intake): Promise<void> => {
     if (balanceDetailsLoading) return;
+    const requestId = ++balanceDetailsRequestId.current;
+    const abortController = new AbortController();
+    balanceDetailsAbortController.current = abortController;
     setBalanceDetailsVisible(true);
     setBalanceDetails("");
     setBalanceDetailsError("");
     setBalanceDetailsCopied(false);
+    const cachedBalanceDetails = String(item.BalanceMD || "").trim();
+    if (cachedBalanceDetails) {
+      setBalanceDetails(normalizeMarkdown(cachedBalanceDetails));
+      return;
+    }
     setBalanceDetailsLoading(true);
     const userEmail = props.context.pageContext.user.email;
-    if (!summarizeTransactionsEndpoint) {
+    if (!llmRequestEndpoint) {
       setBalanceDetailsError(
-        "Configure the Summarize Transactions Endpoint before requesting balance details."
+        "Configure the LLM Request Endpoint before requesting balance details."
       );
       setBalanceDetailsLoading(false);
       return;
@@ -1228,13 +1238,21 @@ export default function Dashboard(
       const tokenProvider =
         await props.context.aadTokenProviderFactory.getTokenProvider();
       const accessToken = await tokenProvider.getToken(flowServiceResource);
-      const response = await window.fetch(summarizeTransactionsEndpoint, {
+      const response = await window.fetch(llmRequestEndpoint, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ propertyId, billingAccountId, userEmail }),
+        signal: abortController.signal,
+        body: JSON.stringify({
+          propertyId,
+          billingAccountId,
+          userEmail,
+          "User Message": String(item.ReceivablesJSON || ""),
+          "System Message": analyzeBalanceInstructions,
+          "JSON Format": false,
+        }),
       });
       if (!response.ok) {
         const responseText = await response.text();
@@ -1262,16 +1280,28 @@ export default function Dashboard(
       if (typeof summaryResponse.Response !== "string") {
         throw new Error("Balance details returned no Markdown response.");
       }
+      if (requestId !== balanceDetailsRequestId.current) return;
       setBalanceDetails(normalizeMarkdown(summaryResponse.Response));
     } catch (e) {
+      if (requestId !== balanceDetailsRequestId.current) return;
       setBalanceDetailsError(
         e instanceof Error
           ? e.message
           : "Unable to request balance details for this resident."
       );
     } finally {
-      setBalanceDetailsLoading(false);
+      if (requestId === balanceDetailsRequestId.current) {
+        balanceDetailsAbortController.current = undefined;
+        setBalanceDetailsLoading(false);
+      }
     }
+  };
+  const closeBalanceDetails = (): void => {
+    balanceDetailsRequestId.current += 1;
+    balanceDetailsAbortController.current?.abort();
+    balanceDetailsAbortController.current = undefined;
+    setBalanceDetailsLoading(false);
+    setBalanceDetailsVisible(false);
   };
   const copyBalanceDetails = async (): Promise<void> => {
     try {
@@ -2224,7 +2254,7 @@ export default function Dashboard(
                           >
                             Recent History
                           </a>
-                        ) : column.key === "balance" && num(column.value(item)) > 0 ? (
+                        ) : column.key === "balance" && num(column.value(item)) !== 0 ? (
                           <a
                             href="#"
                             aria-busy={balanceDetailsLoading}
@@ -2668,7 +2698,7 @@ export default function Dashboard(
                 <h2>Balance Details</h2>
               </div>
               <button
-                onClick={() => setBalanceDetailsVisible(false)}
+                onClick={closeBalanceDetails}
                 aria-label="Close balance details"
               >
                 ×
@@ -2697,7 +2727,7 @@ export default function Dashboard(
                   {balanceDetailsCopied ? "Copied" : "Copy summary"}
                 </button>
               )}
-              <button onClick={() => setBalanceDetailsVisible(false)}>
+              <button onClick={closeBalanceDetails}>
                 Close
               </button>
             </footer>
