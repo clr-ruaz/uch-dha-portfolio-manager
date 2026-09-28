@@ -39,3 +39,6 @@ __pycache__/
 # Ignore local Azure Functions workspace and tools
 src/azure-functions/.vscode/
 src/azure-functions/tools/
+
+# Generated SPFx style mappings
+/src/sharepoint/spfx/src/**/*.module.scss.ts
