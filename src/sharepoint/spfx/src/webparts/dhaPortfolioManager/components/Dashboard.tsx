@@ -1035,6 +1035,10 @@ export default function Dashboard(
       key: "total-credits",
       value: (row: LedgerPivotRow) => ledgerValueTotal(row.credits),
     },
+    {
+      key: "total-balance",
+      value: (row: LedgerPivotRow) => ledgerNetBalance(row),
+    },
   ]
     .concat(
       ledgerPivot.chargeCategories.map((category) => ({
@@ -1078,6 +1082,19 @@ export default function Dashboard(
       return !filter || filter === "all" || String(value) === filter;
     })
   );
+  const ledgerTotals = filteredLedgerRows.reduce(
+    (totals, row) => ({
+      charges: totals.charges + ledgerValueTotal(row.charges),
+      payments: totals.payments + ledgerValueTotal(row.payments),
+      credits: totals.credits + ledgerValueTotal(row.credits),
+      balance: totals.balance + ledgerNetBalance(row),
+    }),
+    { charges: 0, payments: 0, credits: 0, balance: 0 }
+  );
+  const ledgerCategoryCount =
+    ledgerPivot.chargeCategories.length +
+    ledgerPivot.paymentCategories.length +
+    ledgerPivot.creditCategories.length;
   const ledgerTotalPages = Math.max(
     1,
     Math.ceil(filteredLedgerRows.length / ledgerPageSize)
@@ -2383,7 +2400,7 @@ export default function Dashboard(
                   <span>Resident</span>
                 </th>
                 <th rowSpan={ledgerHeaderFilters ? 3 : 2}><span>Month</span></th>
-                <th colSpan={3} className={styles.totalsGroup}>
+                <th colSpan={4} className={styles.totalsGroup}>
                   <span>Totals</span>
                 </th>
                 {ledgerPivot.chargeCategories.length > 0 && (
@@ -2415,6 +2432,7 @@ export default function Dashboard(
                 <th className={styles.totalCategory}><span>Charges</span></th>
                 <th className={styles.totalCategory}><span>Payments</span></th>
                 <th className={styles.totalCategory}><span>Credits</span></th>
+                <th className={styles.totalCategory}><span>Balance</span></th>
                 {ledgerPivot.chargeCategories.map((category) => (
                   <th key={`charge-${category}`}><span>{category}</span></th>
                 ))}
@@ -2463,12 +2481,7 @@ export default function Dashboard(
               {ledgerLoading && (
                 <tr className={styles.ledgerLoadingRow}>
                   <td
-                    colSpan={
-                      5 +
-                      ledgerPivot.chargeCategories.length +
-                      ledgerPivot.paymentCategories.length +
-                      ledgerPivot.creditCategories.length
-                    }
+                    colSpan={6 + ledgerCategoryCount}
                   >
                     <div className={styles.ledgerLoadingState} role="status">
                       <span className={styles.ledgerLoadingSpinner} aria-hidden="true" />
@@ -2509,6 +2522,9 @@ export default function Dashboard(
                   <td className={`${styles.pivotValue} ${styles.totalValue}`}>
                     {money.format(ledgerValueTotal(row.credits))}
                   </td>
+                  <td className={`${styles.pivotValue} ${styles.netBalanceValue}`}>
+                    {money.format(ledgerNetBalance(row))}
+                  </td>
                   {ledgerPivot.chargeCategories.map((category) => (
                     <td key={`charge-${category}`} className={styles.pivotValue}>
                       {row.charges[category]
@@ -2535,12 +2551,7 @@ export default function Dashboard(
               {!ledgerLoading && !ledgerRows.length && (
                 <tr>
                   <td
-                    colSpan={
-                      5 +
-                      ledgerPivot.chargeCategories.length +
-                      ledgerPivot.paymentCategories.length +
-                      ledgerPivot.creditCategories.length
-                    }
+                    colSpan={6 + ledgerCategoryCount}
                     className={styles.empty}
                   >
                     No matching transaction ledger groups found.
@@ -2548,6 +2559,26 @@ export default function Dashboard(
                 </tr>
               )}
             </tbody>
+            {!ledgerLoading && !ledgerError && (
+              <tfoot className={styles.ledgerTotalsRow}>
+                <tr>
+                  <th scope="row" colSpan={2}>Total (all filtered rows)</th>
+                  <td className={`${styles.pivotValue} ${styles.totalValue}`}>
+                    {money.format(ledgerTotals.charges)}
+                  </td>
+                  <td className={`${styles.pivotValue} ${styles.totalValue}`}>
+                    {money.format(ledgerTotals.payments)}
+                  </td>
+                  <td className={`${styles.pivotValue} ${styles.totalValue}`}>
+                    {money.format(ledgerTotals.credits)}
+                  </td>
+                  <td className={`${styles.pivotValue} ${styles.netBalanceValue}`}>
+                    {money.format(ledgerTotals.balance)}
+                  </td>
+                  {ledgerCategoryCount > 0 && <td colSpan={ledgerCategoryCount} />}
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
         <footer>

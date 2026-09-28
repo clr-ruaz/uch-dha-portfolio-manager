@@ -67,6 +67,17 @@
 	color:#203f53;
 	font-weight:800;
 }
+.ledgerTotalsRow {
+	th,td {
+		border-top:2px solid #b9c9d3;
+		font-weight:700;
+	}
+	th {
+		padding:13px 14px;
+		color:#314b5d;
+		background:#edf2f5;
+	}
+}
 .dataViewSwitcher {
 	display:grid;
 	grid-template-columns:1fr auto 1fr;

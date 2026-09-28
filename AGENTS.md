@@ -26,6 +26,17 @@ SPFx reads and updates SharePoint lists on the current site. Power Automate sync
 - Preserve SharePoint internal field names and distinguish numeric SharePoint item/lookup IDs from ResMan domain identifiers such as property and billing-account IDs.
 - Keep environment-specific endpoints and settings in the existing configuration mechanisms. Do not hardcode credentials or replace authenticated requests with embedded keys or signed callback URLs in browser code.
 
+## Runtime and dependency selection
+
+- Check the selected executable and its version before installing dependencies, building, packaging, or running a component. Do not assume the shell default or a global tool matches this project. Prefer process-local runtime selection; do not change machine-wide defaults as part of routine project work.
+- For SPFx, use **Node.js 22.x, at least 22.14.0**.
+- On Windows with nvm-windows, locate the installed Node 22 directory under `$env:NVM_HOME` and prepend it to `$env:PATH` for the current command session before invoking Node or npm.
+- Use npm bundled with the selected Node installation; this repository does not separately pin npm.
+- Use project-local build tools through the existing npm scripts.
+- Keep inherited runtime options compatible with the selected runtime. If `NODE_OPTIONS` causes startup failure, diagnose the specific option and limit any adjustment to the current process; do not clear all options or disable TLS verification.
+
+- Use each component’s dependency manifests, lockfiles, build configuration, and runtime requirements as the source of truth for versions. Preserve existing constraints; do not upgrade dependencies or assume the latest version when no version is specified. Consult the component README or target environment where needed.
+
 ## SPFx dashboard
 
 Working directory: `src/sharepoint/spfx/`.
@@ -41,7 +52,11 @@ Working directory: `src/sharepoint/spfx/`.
 Commands from this working directory:
 
 ```powershell
-npm install
+# Select Node 22 as described above before running these commands.
+node --version
+npm --version
+# Only when dependency restoration is needed:
+npm ci
 npm run build
 npm run package-solution
 # For interactive development with a configured SharePoint workbench:
