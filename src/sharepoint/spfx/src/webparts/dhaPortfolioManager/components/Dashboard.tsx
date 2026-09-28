@@ -1841,7 +1841,7 @@ export default function Dashboard(
           <button onClick={reset}>Reset Filters</button>
           <button onClick={() => setAdvanced(!advanced)}>☷ More Filters</button>
           {canManageRefreshConfiguration && (
-            <button onClick={openRefreshConfiguration}>⚙ Manage</button>
+            <button onClick={openRefreshConfiguration}>⚙ Configuration</button>
           )}
         </div>
         {advanced && (
@@ -2740,7 +2740,7 @@ export default function Dashboard(
             <header>
               <div>
                 <p className={styles.eyebrow}>SITE OWNER CONFIGURATION</p>
-                <h2>Manage Refresh Balances</h2>
+                <h2>Application Configuration</h2>
                 <small>
                   Configure the Entra-authenticated Power Automate HTTP
                   endpoint for this Resident Data list.
