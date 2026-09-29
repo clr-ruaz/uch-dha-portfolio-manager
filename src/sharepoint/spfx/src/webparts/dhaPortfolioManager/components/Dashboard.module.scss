@@ -104,9 +104,9 @@
 .dataViewSwitcher>div {
 	position:relative;
 	display:grid;
-	grid-template-columns:repeat(2,1fr);
+	grid-template-columns:repeat(3,max-content);
 	grid-template-rows:1fr;
-	gap:0;
+	gap:8px;
 	justify-self:auto;
 	overflow:hidden;
 }
@@ -116,19 +116,17 @@
 	z-index:0;
 	top:4px;
 	bottom:4px;
-	left:4px;
-	width:calc(50% - 4px);
+	left:0;
+	width:var(--tab-width,0px);
+	transform:translateX(var(--tab-left,4px));
 	border-radius:7px;
 	background:linear-gradient(135deg,#1767a3,#1593a5);
 	box-shadow:0 6px 14px rgba(22,100,155,.26);
-	transition:transform .38s cubic-bezier(.22,.8,.25,1);
-}
-.dataViewSwitcher>div[data-view="ledger"]::before {
-	transform:translateX(100%);
+	transition:transform .38s cubic-bezier(.22,.8,.25,1),width .38s cubic-bezier(.22,.8,.25,1);
 }
 .dataViewSwitcher button {
 	z-index:1;
-	min-width:240px;
+	min-width:0;
 }
 .dataViewSwitcher .activeDataView,
 .dataViewSwitcher .activeDataView:hover:not(:disabled) {
@@ -469,4 +467,54 @@
 
 @media (prefers-reduced-motion:reduce) {
 	.analysisSpinner,.analysisButtonSpinner { animation:none; }
+}
+
+.expirationHeader { flex-wrap:wrap; }
+.expirationHeader>div:first-child { flex:1 0 260px; max-width:100%; }
+.expirationFilters {
+	display:flex;
+	gap:9px;
+	padding:0;
+	margin-left:auto;
+	max-width:100%;
+	min-width:0;
+	flex-wrap:nowrap;
+	overflow-x:auto;
+}
+.expirationFilters button {
+	flex:0 0 auto;
+	white-space:nowrap;
+	display:flex;
+	align-items:center;
+	justify-content:space-between;
+	gap:8px;
+	padding:9px 12px;
+	border:1px solid #b7c8d4;
+	border-radius:7px;
+	background:#fff;
+	color:#244258;
+	cursor:pointer;
+}
+.expirationFilters button[aria-pressed="true"] {
+	border-color:#1767a3;
+	background:#e5f2fa;
+	box-shadow:inset 0 0 0 1px #1767a3;
+}
+.expirationFilters button:focus-visible,.expirationResident:focus-visible,.dataViewSwitcher button:focus-visible {
+	outline:3px solid #1767a3;
+	outline-offset:-3px;
+}
+.expirationNote { padding:0; color:#52697a; font-size:13px; text-align:left; }
+.expirationResident { border:0; padding:0; background:transparent; color:inherit; text-align:left; font:inherit; cursor:pointer; }
+.expirationTable th>span { display:block; padding:12px 14px; color:#355267; font-weight:700; }
+.dataViewSwitcher>div { flex:0 1 auto; width:max-content; max-width:100%; min-width:0; overflow-x:auto; }
+.dataViewSwitcher button { padding:10px; border-radius:7px; }
+.dataViewSwitcher button>span:nth-child(2) { white-space:nowrap; overflow:visible; text-overflow:clip; }
+@media (max-width:900px) {
+	.dataViewSwitcher { align-items:stretch; flex-direction:column; gap:8px; }
+	.dataViewSwitcher>div { width:max-content; }
+}
+@media (max-width:600px) {
+	.expirationHeader>div:first-child { flex:0 1 auto; }
+	.expirationFilters { margin-left:0; }
 }

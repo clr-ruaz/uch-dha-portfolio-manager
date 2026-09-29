@@ -2,6 +2,9 @@ import * as React from "react";
 import { SPHttpClient, SPHttpClientResponse } from "@microsoft/sp-http";
 import { IDashboardProps } from "./IDashboardProps";
 import styles from "./Dashboard.module.scss";
+import HapExpirations from "./HapExpirations";
+import { dallasToday, ExpirationFilter, expirationBucket, matchesExpiration, storedCalendarDay } from "./hapExpirationDates";
+import { readAllSharePointItems } from "./sharePointPaging";
 
 interface Person {
   Id: number;
@@ -56,7 +59,7 @@ interface LedgerPivot {
   creditCategories: string[];
   rows: LedgerPivotRow[];
 }
-type DataView = "resident" | "ledger";
+type DataView = "resident" | "ledger" | "expirations";
 type LedgerDetailSortKey =
   | "date"
   | "transactionType"
@@ -625,6 +628,56 @@ export default function Dashboard(
   );
   const [ledgerMonth, setLedgerMonth] = React.useState(currentLedgerMonthKey);
   const [dataView, setDataView] = React.useState<DataView>("resident");
+  const tabListRef = React.useRef<HTMLDivElement>(null);
+  const workspaceRef = React.useRef<HTMLDivElement>(null);
+  const pendingScroll = React.useRef<Array<{ element: HTMLElement; top: number; left: number }>>([]);
+  const changeDataView = (view: DataView): void => {
+    if (view === dataView) return;
+    const positions: Array<{ element: HTMLElement; top: number; left: number }> = [];
+    let element = workspaceRef.current && workspaceRef.current.parentElement;
+    while (element) {
+      positions.push({ element, top: element.scrollTop, left: element.scrollLeft });
+      element = element.parentElement;
+    }
+    pendingScroll.current = positions;
+    setDataView(view);
+  };
+  React.useLayoutEffect(() => {
+    pendingScroll.current.forEach(({ element, top, left }) => {
+      element.scrollTop = top;
+      element.scrollLeft = left;
+    });
+    pendingScroll.current = [];
+  }, [dataView]);
+  React.useLayoutEffect(() => {
+    const list = tabListRef.current;
+    if (!list) return;
+    const updateIndicator = (): void => {
+      const active = list.querySelector('[aria-selected="true"]') as HTMLElement | null;
+      if (!active) return;
+      list.style.setProperty("--tab-left", `${active.offsetLeft}px`);
+      list.style.setProperty("--tab-width", `${active.offsetWidth}px`);
+    };
+    updateIndicator();
+    const observer = new ResizeObserver(updateIndicator);
+    observer.observe(list);
+    list.querySelectorAll("button").forEach((button) => observer.observe(button));
+    return () => observer.disconnect();
+  }, [dataView]);
+  const [expirationToday, setExpirationToday] = React.useState(dallasToday);
+  const [expirationFilter, setExpirationFilter] = React.useState<ExpirationFilter>("upcoming");
+  React.useEffect(() => {
+    const updateDay = (): void => setExpirationToday(dallasToday());
+    updateDay();
+    const timer = window.setInterval(updateDay, 1000);
+    window.addEventListener("focus", updateDay);
+    document.addEventListener("visibilitychange", updateDay);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", updateDay);
+      document.removeEventListener("visibilitychange", updateDay);
+    };
+  }, [dataView]);
   const [selectedLedgerRow, setSelectedLedgerRow] =
     React.useState<LedgerPivotRow | undefined>();
   const [ledgerDetailLoading, setLedgerDetailLoading] = React.useState(false);
@@ -743,20 +796,7 @@ export default function Dashboard(
     [props.context.spHttpClient]
   );
   const getAllItems = React.useCallback(
-    async (url: string): Promise<any[]> => {
-      const items: any[] = [];
-      let nextUrl = url;
-      while (nextUrl) {
-        const result = await get(nextUrl);
-        items.push(...(result.value || []));
-        nextUrl =
-          result["@odata.nextLink"] ||
-          result["odata.nextLink"] ||
-          (result.d && result.d.__next) ||
-          "";
-      }
-      return items;
-    },
+    (url: string): Promise<any[]> => readAllSharePointItems(url, get),
     [get]
   );
   const resolveLookupDomainId = React.useCallback(
@@ -899,29 +939,30 @@ export default function Dashboard(
     void loadRefreshConfiguration();
   }, [loadRefreshConfiguration]);
   const load = React.useCallback(async (): Promise<void> => {
+    setExpirationToday(dallasToday());
     setLoading(true);
     setError("");
     try {
       const [intake, tenant] = await Promise.all([
-        get(
+        getAllItems(
           `${base}/_api/web/lists/getbytitle('${safe(
             props.intakeListName || "DHA Intake"
           )}')/items?$top=5000`
         ),
-        get(
+        getAllItems(
           `${base}/_api/web/lists/getbytitle('${safe(
             props.peopleListName || "ResMan People"
           )}')/items?$top=5000`
         ),
       ]);
-      const peopleData: Person[] = tenant.value || [];
+      const peopleData: Person[] = tenant;
       const lookup: { [key: number]: Person } = {};
       peopleData.forEach((person) => {
         lookup[person.Id] = person;
       });
       setPeople(peopleData);
       setRecords(
-        (intake.value || []).map((item: Intake) => ({
+        intake.map((item: Intake) => ({
           ...item,
           TenantName: lookup[item.TenantNameId || 0],
         }))
@@ -936,7 +977,7 @@ export default function Dashboard(
     }
   }, [
     base,
-    get,
+    getAllItems,
     props.intakeListName,
     props.peopleListName,
   ]);
@@ -975,6 +1016,16 @@ export default function Dashboard(
   const propertyOptions = unique(records.map(prop));
   const residencyOptions = unique(records.map(residency));
   const statusOptions = unique(records.map(dha).concat(["Unknown"]));
+  const expirationRecords = records.filter((item) =>
+    (!properties.length || properties.indexOf(prop(item)) >= 0) &&
+    (!residencies.length || residencies.indexOf(residency(item)) >= 0) &&
+    (!statuses.length || statuses.indexOf(dha(item)) >= 0) &&
+    (!search.trim() || `${name(item)} ${unit(item)} ${prop(item)}`.toLowerCase().indexOf(search.trim().toLowerCase()) >= 0)
+  );
+  const expirationCount = expirationRecords.filter((item) => {
+    const end = storedCalendarDay(item.HAPContractEnd);
+    return matchesExpiration(expirationBucket(end === undefined ? undefined : end - expirationToday), expirationFilter);
+  }).length;
   const filtered = records
     .filter(
       (item) =>
@@ -2060,15 +2111,31 @@ export default function Dashboard(
       <nav className={styles.dataViewSwitcher} aria-label="Select data view">
         <div
           role="tablist"
+          ref={tabListRef}
           aria-label="Portfolio data views"
           data-view={dataView}
+          onKeyDown={(event) => {
+            const views: DataView[] = ["resident", "ledger", "expirations"];
+            let index = views.indexOf(dataView);
+            if (event.key === "ArrowRight") index = (index + 1) % views.length;
+            else if (event.key === "ArrowLeft") index = (index + views.length - 1) % views.length;
+            else if (event.key === "Home") index = 0;
+            else if (event.key === "End") index = views.length - 1;
+            else return;
+            event.preventDefault();
+            changeDataView(views[index]);
+            (event.currentTarget.querySelectorAll("button")[index] as HTMLButtonElement).focus({ preventScroll: true });
+          }}
         >
           <button
             type="button"
             role="tab"
+            id={`${props.context.instanceId}-resident-tab`}
+            aria-controls={`${props.context.instanceId}-data-panel`}
+            tabIndex={dataView === "resident" ? 0 : -1}
             aria-selected={dataView === "resident"}
             className={dataView === "resident" ? styles.activeDataView : ""}
-            onClick={() => setDataView("resident")}
+            onClick={() => changeDataView("resident")}
           >
             <span className={styles.viewIcon} aria-hidden="true">⌂</span>
             <span>Resident Data</span>
@@ -2077,19 +2144,45 @@ export default function Dashboard(
           <button
             type="button"
             role="tab"
+            id={`${props.context.instanceId}-ledger-tab`}
+            aria-controls={`${props.context.instanceId}-data-panel`}
+            tabIndex={dataView === "ledger" ? 0 : -1}
             aria-selected={dataView === "ledger"}
             className={dataView === "ledger" ? styles.activeDataView : ""}
-            onClick={() => setDataView("ledger")}
+            onClick={() => changeDataView("ledger")}
           >
             <span className={styles.viewIcon} aria-hidden="true">▤</span>
             <span>Transaction Ledger</span>
             <b>{filteredLedgerRows.length}</b>
           </button>
+          <button type="button" role="tab"
+            id={`${props.context.instanceId}-expirations-tab`}
+            aria-controls={`${props.context.instanceId}-data-panel`}
+            tabIndex={dataView === "expirations" ? 0 : -1}
+            aria-selected={dataView === "expirations"}
+            className={dataView === "expirations" ? styles.activeDataView : ""}
+            onClick={() => changeDataView("expirations")}>
+            <span className={styles.viewIcon} aria-hidden="true">◷</span>
+            <span>HAP Expirations</span>
+            <b>{loading || error ? "—" : expirationCount}</b>
+          </button>
         </div>
         <span className={styles.switcherLabel}>Workspace view</span>
       </nav>
-      <div key={dataView} className={styles.tableView}>
-      {dataView === "resident" ? (
+      <div ref={workspaceRef} className={styles.tableView} role="tabpanel"
+        id={`${props.context.instanceId}-data-panel`} aria-labelledby={`${props.context.instanceId}-${dataView}-tab`}>
+      <div hidden={dataView !== "expirations"}>
+        <HapExpirations records={expirationRecords.map((item) => ({
+          id: item.Id, resident: name(item), property: prop(item), unit: unit(item),
+          start: item.HAPContractStart, end: item.HAPContractEnd,
+          documentUrl: hasDocumentValue(item.HAPContract) ? docUrl(base, item) : undefined,
+        }))} today={expirationToday} loading={loading} error={error}
+          filter={expirationFilter} onFilterChange={setExpirationFilter}
+          filterKey={JSON.stringify([properties, residencies, statuses, search])}
+          onOpen={(id) => { const item = records.filter((record) => record.Id === id)[0]; if (item) openEdit(item); }}
+          />
+      </div>
+      <div hidden={dataView !== "resident"}>
       <section className={styles.tableCard}>
         <div className={styles.tableHeader}>
           <div>
@@ -2356,7 +2449,8 @@ export default function Dashboard(
           </div>
         </footer>
       </section>
-      ) : (
+      </div>
+      <div hidden={dataView !== "ledger"}>
       <section className={styles.tableCard}>
         <div className={styles.tableHeader}>
           <div>
@@ -2613,7 +2707,7 @@ export default function Dashboard(
           </div>
         </footer>
       </section>
-      )}
+      </div>
       </div>
       {selectedLedgerRow && (
         <div className={styles.modalBackdrop} role="dialog" aria-modal="true">
