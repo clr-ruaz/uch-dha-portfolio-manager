@@ -6,3 +6,6 @@ release/
 sharepoint/solution/*.sppkg
 sharepoint/solution/debug/
 .vscode/
+
+# Local SharePoint workbench configuration
+/config/serve.json

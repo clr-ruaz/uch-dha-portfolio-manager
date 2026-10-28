@@ -5,6 +5,7 @@ import styles from "./Dashboard.module.scss";
 import HapExpirations from "./HapExpirations";
 import { dallasToday, ExpirationFilter, expirationBucket, matchesExpiration, storedCalendarDay } from "./hapExpirationDates";
 import { readAllSharePointItems } from "./sharePointPaging";
+import ResidentRequirements, { isFieldNotApplicable, requirementUpdates } from "./ResidentRequirements";
 
 interface Person {
   Id: number;
@@ -1560,7 +1561,8 @@ export default function Dashboard(
         (key) =>
           comparableFieldValue(fieldMap[key], draft[key]) !==
           comparableFieldValue(fieldMap[key], edit![key])
-      ));
+      ) ||
+      Object.keys(requirementUpdates(draft, edit!)).length > 0);
   const openEdit = (item: Intake): void => {
     setFormError("");
     setCreate(false);
@@ -1724,6 +1726,7 @@ export default function Dashboard(
     setSaving(true);
     try {
       const payload: any = {
+        ...(!create && edit ? requirementUpdates(draft, edit) : {}),
         Title:
           draft.Title ||
           tenantDisplay(Number(draft.TenantNameId), people) ||
@@ -3030,6 +3033,9 @@ export default function Dashboard(
                       key={field.key}
                       field={field}
                       value={draft[field.key]}
+                      notApplicable={
+                        !create && isFieldNotApplicable(field.key, draft)
+                      }
                       setValue={(value) =>
                         setDraft((current: any) => ({
                           ...current,
@@ -3040,6 +3046,16 @@ export default function Dashboard(
                   ))}
                 </section>
               ))}
+              {edit && (
+                <ResidentRequirements
+                  key={edit.Id}
+                  draft={draft}
+                  saving={saving}
+                  onChange={(key, required) =>
+                    setDraft((current) => ({ ...current, [key]: required }))
+                  }
+                />
+              )}
             </div>
             {formError && (
               <div className={styles.formError} role="alert">
@@ -3243,6 +3259,7 @@ function Select(props: {
 function Field(props: {
   field: FormField;
   value: any;
+  notApplicable?: boolean;
   setValue: (value: any) => void;
 }): React.ReactElement<any> {
   if (props.field.type === "status")
@@ -3271,7 +3288,12 @@ function Field(props: {
     );
   return (
     <label>
-      {props.field.label}
+      <span className={styles.residentFieldLabel}>
+        {props.field.label}
+        {props.notApplicable && (
+          <span className={styles.notApplicable}>Not applicable</span>
+        )}
+      </span>
       <input
         type={
           props.field.type === "date"
@@ -3284,7 +3306,7 @@ function Field(props: {
         value={
           props.field.type === "date"
             ? dateInput(props.value)
-            : props.value || ""
+            : props.value === undefined || props.value === null ? "" : props.value
         }
         readOnly={props.field.readOnly}
         onChange={(e) => props.setValue(e.target.value)}

@@ -26,6 +26,9 @@ export default class DhaPortfolioManagerWebPart extends BaseClientSideWebPart<ID
     const element = React.createElement(Dashboard, { context: this.context, intakeListName: this.properties.intakeListName, peopleListName: this.properties.peopleListName, ledgerListName: this.properties.ledgerListName });
     ReactDom.render(element, this.domElement);
   }
+  protected onDispose(): void {
+    ReactDom.unmountComponentAtNode(this.domElement);
+  }
   protected get dataVersion(): any { return '1.0'; }
   protected getPropertyPaneConfiguration(): IPropertyPaneConfiguration {
     return { pages: [{ header: { description: 'Configure the SharePoint lists that power this dashboard.' }, groups: [{ groupName: 'Data sources', groupFields: [

@@ -22,4 +22,22 @@ The deployable package is generated at `sharepoint/solution/dha-portfolio-manage
 6. Configure the list names through the property pane if the defaults differ.
 7. Create a **DHA Configuration** list with a multiline text column whose internal name is `Value`. As a site owner, use **Manage** in the dashboard command bar to save the Entra-authenticated Refresh Balances endpoint in that list.
 
-The manifest supports `SharePointWebPart` and `SharePointFullPage`, with full-bleed rendering enabled. Before running `npm run serve`, replace the example tenant and site in `config/serve.json` with your development workbench URL. Full-page behavior must be verified on a deployed SharePoint page.
+The manifest supports `SharePointWebPart` and `SharePointFullPage`, with full-bleed rendering enabled. Full-page behavior must be verified on a deployed SharePoint page.
+
+## Local workbench setup
+
+From this directory, create your local configuration once:
+
+```bash
+# macOS / Linux
+cp config/serve.example.json config/serve.json
+```
+
+```powershell
+# Windows PowerShell
+Copy-Item config/serve.example.json config/serve.json
+```
+
+If `config/serve.json` already exists, keep it rather than overwriting your local settings. Set its `initialPage` to your development SharePoint site's URL followed by `/_layouts/workbench.aspx`. The local `config/serve.json` is ignored by Git; commit shared configuration changes to `config/serve.example.json` using placeholder URLs only.
+
+Trust the development HTTPS certificate on a new machine with `npx gulp trust-dev-cert`, then run `npm run serve` to start local debugging.
