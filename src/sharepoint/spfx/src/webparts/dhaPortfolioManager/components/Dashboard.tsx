@@ -3783,13 +3783,14 @@ function calculateKpis(
   const owing = records.filter((item) => num(item.Balance) > 0);
   const balance = owing.reduce((total, item) => total + num(item.Balance), 0);
   const highest = owing.sort((a, b) => num(b.Balance) - num(a.Balance))[0];
-  const docs = records.filter((item) => Boolean(item.Id)).length;
-  const invoices = records.filter((item) => Boolean(item.WelcomeLetter)).length;
-  const hapDates = records.filter((item) =>
-    Boolean(item.HAPContractStart && item.HAPContractEnd)
-  ).length;
+  const recordedDocuments = records.reduce(
+    (total, item) => total +
+      (hasDocumentValue(item.HAPContract) ? 1 : 0) +
+      (hasDocumentValue(item.WelcomeLetter) ? 1 : 0),
+    0
+  );
   const completeness = records.length
-    ? Math.round(((docs + invoices + hapDates) / (records.length * 3)) * 100)
+    ? Math.round((recordedDocuments / (records.length * 2)) * 100)
     : 0;
   return [
     {
@@ -3833,7 +3834,7 @@ function calculateKpis(
     {
       title: "Document Completeness",
       value: `${completeness}%`,
-      subtitle: "Program docs, invoices, HAP dates",
+      subtitle: "HAP contracts and welcome/invoices recorded",
     },
   ];
 }
